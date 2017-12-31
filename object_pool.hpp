@@ -24,27 +24,26 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include <iostream>
 
 namespace carlosb
 {
-
     namespace internal
     {
     }
 
     template <
         class T,
-        class Allocator = std::allocator<T>,
-        class Deleter   = std::default_delete<T>,
-        class Mutex     = std::mutex,
-        class LockGuard = std::lock_guard<Mutex>
+        class Allocator         = std::allocator<T>,
+        class RecursiveMutex    = std::recursive_mutex,
+        class LockGuard         = std::lock_guard<RecursiveMutex>
     >
     class object_pool
     {
     public:
         // --- HELPER CLASSES ---------------------
         class impl;
-        class return_deleter;
+        class deleter;
 
     public:
         // --- TYPEDEFS ---------------------------
@@ -52,18 +51,16 @@ namespace carlosb
         using lv_reference      = T&;
         using rv_reference      = T&&;
         using const_reference   = const T&;
-        using acquired_type     = std::unique_ptr<T, return_deleter>;
+        using acquired_type     = std::unique_ptr<T, deleter>;
 
         using size_type         = std::size_t;
 
         using allocator_type    = Allocator;
-        using deleter_type      = Deleter;
-        using mutex_type        = Mutex;
+        using mutex_type        = RecursiveMutex;
         using lock_guard        = LockGuard;
 
-        template <class... Params>
-        object_pool(Params... params)
-            : m_pool(std::make_shared<impl>(params...))
+        explicit object_pool(size_type count, const T& value, const Allocator& alloc = Allocator())
+            : m_pool(std::make_shared<impl>(count, value, alloc))
         {}
 
         acquired_type acquire()
@@ -71,14 +68,45 @@ namespace carlosb
             return m_pool->acquire();
         }
 
-        void insert(const T& value)
+        void insert(const_reference value)
         {
             m_pool->insert(value);
         }
 
-        void insert(T&& value)
+        void insert(rv_reference value)
         {
             m_pool->insert(std::move(value));
+        }
+
+        template <class... Args>
+        void emplace(Args&&... args)
+        {
+            m_pool->emplace(std::forward<Args>(args)...);
+        }
+
+        void resize(size_type count)
+        {
+            m_pool->resize(count);
+        }
+
+        void resize(size_type count, const value_type& value)
+        {
+            m_pool->resize(count, value);
+        }
+
+        size_type size() const
+        {
+            return m_pool->size();
+        }
+
+        size_type capacity() const
+        {
+            return m_pool->capacity();
+        }
+
+        bool empty() const
+        {
+            return m_pool->empty();
         }
 
     private:
@@ -89,32 +117,31 @@ namespace carlosb
     template <
         class T,
         class Allocator,
-        class Deleter,
         class Mutex,
         class LockGuard
     >
-    class object_pool<T, Allocator, Deleter, Mutex, LockGuard>::impl : public std::enable_shared_from_this<impl>
+    class object_pool<T, Allocator, Mutex, LockGuard>::impl : public std::enable_shared_from_this<impl>
     {
+        friend void deleter::operator()(T* ptr);
     public:
-        // --- CONSTRUCTORS -----------------------
         template <typename = typename std::enable_if<
             std::is_default_constructible<T>::value && std::is_copy_constructible<T>::value>
         ::type
         >
-        impl(size_type count, const T& value, const Allocator& alloc = Allocator())
+        explicit impl(size_type count, const T& value, const Allocator& alloc = Allocator())
             :   m_size(count),
                 m_capacity(count),
                 m_allocator(alloc)
         {   
             m_pool = m_allocator.allocate(m_size);
-            for (int i = 0; i < m_size; ++i)
+            for (size_type i = 0; i < m_size; ++i)
                 m_pool[i] = T(value);
 
-            for (int i = 0; i < m_size; ++i)
+            for (size_type i = 0; i < m_size; ++i)
                 this->insert(m_pool + i);
         }
 
-        impl(const Allocator& alloc = Allocator())
+        explicit impl(const Allocator& alloc = Allocator())
             :   m_size(0),
                 m_capacity(4),
                 m_allocator(alloc)
@@ -122,8 +149,15 @@ namespace carlosb
             m_pool = m_allocator.allocate(m_capacity);
         }
 
+        ~impl()
+        {
+            m_allocator.deallocate(m_pool, m_capacity);
+        }
+
         void reserve(size_type n)
         {
+            lock_guard lock(m_pool_mutex);
+
             if (m_pool)
                 m_allocator.deallocate(m_pool, m_capacity);
 
@@ -133,73 +167,155 @@ namespace carlosb
 
         acquired_type acquire()
         {
-            lock_guard lock(m_stack_mutex);
-
-            if (m_free.empty())
             {
-                throw std::out_of_range("No free objects available.");
+                lock_guard lock(m_stack_mutex);
+
+                if (m_free.empty())
+                {
+                    throw std::out_of_range("No free objects available.");
+                }
+                else
+                {   
+                    auto obj = acquired_type(m_free.top(), deleter{impl::shared_from_this()});
+                    m_free.pop();
+                    return std::move(obj);
+                }  
+            }   
+        }
+
+        void insert(const_reference value)
+        {
+            {
+                lock_guard lock_pool(m_pool_mutex);
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+
+                m_pool[m_size] = value;
+            }
+
+            {
+                lock_guard lock_stack(m_stack_mutex);
+                m_free.push(m_pool + m_size);
+            }
+
+            {
+                lock_guard lock_pool(m_pool_mutex);
+                ++m_size;
+            }
+        }
+
+        void insert(rv_reference value)
+        {
+            {
+                lock_guard lock_pool(m_pool_mutex);
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+
+                m_pool[m_size] = std::move(value);
+            }
+
+            {
+                lock_guard lock_stack(m_stack_mutex);
+                m_free.push(m_pool + m_size);
+            }
+            
+            {
+                lock_guard lock_pool(m_pool_mutex);
+                ++m_size;
+            }
+            
+        }
+
+        template <class... Args>
+        void emplace(Args&&... args)
+        {
+            {
+                lock_guard lock_pool(m_pool_mutex);
+
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+
+                m_pool[m_size] = T(std::forward<Args>(args)...);
+            }
+
+            {
+                lock_guard lock_stack(m_stack_mutex);
+                m_free.push(m_pool + m_size); 
+            }
+
+            {
+                lock_guard lock_pool(m_pool_mutex);
+                ++m_size;
+            }   
+        }
+
+        void resize(size_type count)
+        {
+            if (count > m_size)
+            {
+                if (count > m_capacity)
+                    this->reallocate(count);
             }
             else
-            {   
-                auto obj = acquired_type(m_free.top(), return_deleter{impl::shared_from_this()});
-                m_free.pop();
-                return std::move(obj);
-            }
-        }
-
-        void insert(const T& value)
-        {
-            lock_guard lock(m_stack_mutex);
-            if (m_size == m_capacity)
             {
-                m_capacity *= 2;
-                this->resize(m_capacity);
+                for (size_type i = m_size; i < count; ++i)
+                    m_pool[i].~T();
             }
-            m_pool[m_size] = value;
-            m_free.push(m_pool + m_size);
-            ++m_size;
+            m_size = count;
         }
 
-        void insert(T&& value)
+        void resize(size_type count, const value_type& value)
         {
-            lock_guard lock(m_stack_mutex);
-            if (m_size == m_capacity)
+            if (count > m_size)
             {
-                m_capacity *= 2;
-                this->resize(m_capacity);
+                if (count > m_capacity)
+                    this->reallocate(count);
+
+                for (size_type i = m_size; i < count; ++i)
+                    m_pool[i] = value;
             }
-            m_pool[m_size] = std::move(value);
-            m_free.push(m_pool + m_size);
-            ++m_size;
+            else
+            {
+                for (size_type i = m_size; i < count; ++i)
+                    m_pool[i].~T();
+            }
+            m_size = count;
         }
 
-        void resize(size_type n)
-        {
-            lock_guard lock(m_pool_mutex);
-            T* new_pool = m_allocator.allocate(n);
-            std::memcpy(new_pool, m_pool, sizeof(T) * m_size);
-            m_allocator.deallocate(m_pool, m_capacity);
-            m_pool = new_pool;
-        }
-
-        size_type size()
+        size_type size() const
         {
             return m_size;
         }
 
-        size_type capacity()
+        size_type capacity() const
         {
             return m_capacity;
         }
 
-    public:
+        bool empty() const
+        {
+            return m_size == 0;
+        }
+
+    private:
         void insert(T* obj)
         {
-            lock_guard lock(m_stack_mutex);
+            lock_guard lock_stack(m_stack_mutex);
             m_free.push(obj);
         }
 
-        // --- PRIVATE MEMBERS --------------------
+        void reallocate(size_type count)
+        {
+            T* new_pool = m_allocator.allocate(count);
+            {
+                lock_guard lock(m_pool_mutex);
+                std::memcpy(new_pool, m_pool, m_size * sizeof(T));
+                m_allocator.deallocate(m_pool, m_capacity);
+                m_pool = new_pool;
+                m_capacity = count;
+            }
+        }
+
         T*                                          m_pool;
         allocator_type                              m_allocator;
         size_type                                   m_size;
@@ -209,18 +325,17 @@ namespace carlosb
         mutex_type                                  m_stack_mutex;      ///< Controls access to the stack of free objects.
     };
 
-    // --- RETURN_DELETER IMPLEMENTATIONS ---------------------------
+    // --- deleter IMPLEMENTATIONS ---------------------------
     template <
         class T,
         class Allocator,
-        class Deleter,
         class Mutex,
         class LockGuard
     >
-    class object_pool<T, Allocator, Deleter, Mutex, LockGuard>::return_deleter
+    class object_pool<T, Allocator, Mutex, LockGuard>::deleter
     {
     public:
-        return_deleter(std::weak_ptr<impl> pool_ptr)
+        deleter(std::weak_ptr<impl> pool_ptr)
             : m_pool_ptr(pool_ptr)
         {}
 
@@ -228,13 +343,10 @@ namespace carlosb
         {
             if (auto pool = m_pool_ptr.lock())
                 pool->insert(ptr);
-            else
-                Deleter{}(ptr);
         }
 
     private:
         std::weak_ptr<impl> m_pool_ptr;
     };
 }
-
 #endif
