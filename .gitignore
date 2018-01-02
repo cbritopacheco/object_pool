@@ -31,4 +31,8 @@
 *.out
 *.app
 
+# Sublime Text
 *.sublime-*
+
+# Other
+*.dSYM
