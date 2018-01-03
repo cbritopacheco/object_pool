@@ -7,7 +7,7 @@ permalink: /index/
 
 # object_pool
 
-An `object_pool` is a container which provides shared access to a collection of instances of one object of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
+An `object_pool` is a container which provides shared access to a collection of object instances of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
 
 ```c++
 #include "object_pool.hpp"
