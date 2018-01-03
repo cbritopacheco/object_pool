@@ -132,99 +132,6 @@ namespace carlosb
 
     template <
         class T,
-        class Lender
-    >
-    class acquired_object
-    {
-    public:
-        using value_type    = T;
-        using lender_type   = Lender;
-
-        acquired_object()
-            : m_is_initialized(false)
-        {}
-
-        acquired_object(none_t)
-            : m_is_initialized(false)
-        {}
-
-        explicit
-        acquired_object(std::nullptr_t)
-            : m_is_initialized(false)
-        {}
-
-        explicit
-        acquired_object(T* obj, std::shared_ptr<Lender> lender)
-            :   m_obj(obj),
-                m_lender(lender),
-                m_is_initialized(true)
-        {
-            assert(obj);
-        }
-
-        acquired_object(acquired_object&& other)
-            :   m_obj(other.m_obj),
-                m_lender(std::move(other.m_lender)),
-                m_is_initialized(other.m_is_initialized)
-        {
-            other.m_obj = nullptr;
-        }
-
-        acquired_object(const acquired_object&) = delete;
-
-        T& operator*() 
-        {
-            if (!m_is_initialized)
-                throw std::logic_error("acquired_object::operator*(): Initialization is required for data access.");
-            else
-                return *m_obj;
-        }
-
-        bool operator==(const none_t) const
-        {
-            return !m_is_initialized;
-        }
-
-        bool operator!=(const none_t) const
-        {
-            return !(*this == none);
-        }
-
-        explicit
-        operator bool() const
-        {
-            return m_is_initialized;
-        }
-
-        acquired_object& operator=(acquired_object&& other)
-        {
-            // acquire ownership of the managed object
-            m_obj = other.m_obj;
-            other.m_obj = nullptr;
-
-            // obtain pointer of other lender
-            m_lender = std::move(other.m_lender);
-
-            // copy state
-            m_is_initialized = other.m_is_initialized;
-            other.m_is_initialized = false;
-
-            return *this;
-        }
-
-        ~acquired_object()
-        {
-            if (m_is_initialized)
-                typename lender_type::deleter_type{m_lender}(m_obj);
-        }
-    private:
-        T*                          m_obj;
-        std::shared_ptr<Lender>     m_lender;
-        bool                        m_is_initialized;
-    };
-
-    template <
-        class T,
         class Allocator,
         class Mutex
     >
@@ -245,12 +152,14 @@ namespace carlosb
          */
         class deleter;
     public:
+        class acquired_object;
+
         using value_type        = T;                        ///< Type managed by the pool.
         using lv_reference      = T&;                       ///< l-value reference.
         using rv_reference      = T&&;                      ///< r-value reference.
         using const_reference   = const T&;                 ///< const l-value reference.
 
-        using acquired_type     = acquired_object<T, impl>; ///< Type of acquired objects.
+        using acquired_type     = acquired_object;          ///< Type of acquired objects.
         using deleter_type      = deleter;                  ///< Custom deleter of pool. It returns objects back to the pool.
         using stack_type        = std::stack<T*>;           ///< Stack of pointers to the managed objects. Only contains unused objects.
 
@@ -485,13 +394,14 @@ namespace carlosb
         using deleter_type = deleter_type;
 
         impl()
-            : impl(Allocator())
+            :   impl(Allocator())
         {
             static_assert(std::is_default_constructible<Allocator>::value,
                           "Allocator must be DefaultConstructible to use this constructor.");
         }
 
-        explicit impl(const Allocator& alloc)
+        explicit
+        impl(const Allocator& alloc)
             :   m_size(0),
                 m_capacity(4),
                 m_allocator(alloc)
@@ -520,7 +430,12 @@ namespace carlosb
                 m_capacity(count),
                 m_allocator(alloc)
         {
-            m_pool = m_allocator.allocate(count);
+            m_pool = m_allocator.allocate(m_size);
+            for (size_type i = 0; i < m_size; ++i)
+                m_pool[i] = T();
+
+            for (size_type i = 0; i < m_size; ++i)
+                m_free.push(m_pool + i);
         }
 
         ~impl()
@@ -730,6 +645,96 @@ namespace carlosb
 
     private:
         std::weak_ptr<impl> m_pool_ptr;
+    };
+
+    template <
+        class T,
+        class Allocator,
+        class Mutex
+    >
+    class object_pool<T, Allocator, Mutex>::acquired_object
+    {
+    public:
+        acquired_object()
+            : m_is_initialized(false)
+        {}
+
+        acquired_object(none_t)
+            : m_is_initialized(false)
+        {}
+
+        acquired_object(std::nullptr_t)
+            : m_is_initialized(false)
+        {}
+
+        explicit
+        acquired_object(T* obj, std::shared_ptr<impl> lender)
+            :   m_obj(obj),
+                m_pool(lender),
+                m_is_initialized(true)
+        {
+            assert(obj);
+        }
+
+        acquired_object(acquired_object&& other)
+            :   m_obj(other.m_obj),
+                m_pool(std::move(other.m_pool)),
+                m_is_initialized(other.m_is_initialized)
+        {
+            other.m_obj = nullptr;
+        }
+
+        acquired_object(const acquired_object&) = delete;
+
+        T& operator*() 
+        {
+            if (!m_is_initialized)
+                throw std::logic_error("acquired_object::operator*(): Initialization is required for data access.");
+            else
+                return *m_obj;
+        }
+
+        bool operator==(const none_t) const
+        {
+            return !m_is_initialized;
+        }
+
+        bool operator!=(const none_t) const
+        {
+            return !(*this == none);
+        }
+
+        explicit
+        operator bool() const
+        {
+            return m_is_initialized;
+        }
+
+        acquired_object& operator=(acquired_object&& other)
+        {
+            // acquire ownership of the managed object
+            m_obj = other.m_obj;
+            other.m_obj = nullptr;
+
+            // obtain pointer of other lender
+            m_pool = std::move(other.m_pool);
+
+            // copy state
+            m_is_initialized = other.m_is_initialized;
+            other.m_is_initialized = false;
+
+            return *this;
+        }
+
+        ~acquired_object()
+        {
+            if (m_is_initialized)
+                deleter_type{m_pool}(m_obj);
+        }
+    private:
+        T*                          m_obj;
+        std::shared_ptr<impl>       m_pool;
+        bool                        m_is_initialized;
     };
 }
 #endif
