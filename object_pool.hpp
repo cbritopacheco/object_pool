@@ -24,8 +24,8 @@
 #include <vector>
 #include <stdexcept>
 #include <type_traits>
+#include <cassert>
 
-#include <iostream>
 
 namespace carlosb
 {
@@ -44,13 +44,52 @@ namespace carlosb
     class object_pool;
 
     /**
-     * Contains types not needed by the user.
+     * @brief      Class for acquired object.
+     * 
+     * @tparam     T       Type of acquired object.
+     * 
+     * @tparam     Lender  Type which lends the object.
+     * 
+     * An acquired object is that which has been acquired from a Lender. The lender must
+     * have defined `Lender::deleter_type` along with a method `Lender::return_object(T* obj)`.
+     * 
+     * 
+     * Example
+     * -------
+     * An object of this type can be used like this:
+     * 
+     * ```c++
+     * auto obj = pool.acquire();
+     * if (obj)
+     *     cout << *obj << "\n";
+     * else
+     *     cout << "The acquired object is invalid." << "\n";
+     * ```
+     * 
+     * Notes
+     * -----
+     * Attempting to access an invalid `acquired_object` will result in a `std::logic_error` being thrown.
+     */
+    template <
+        class T,
+        class Lender
+    >
+    class acquired_object;
+
+    /**
+     * Contains types needed by the implementation.
      */
     namespace detail
     {   
         template <class...>
         using void_t = void;
+
+        struct none_helper
+        {};
     }
+
+    typedef int detail::none_helper::*none_t;
+    none_t const none = (static_cast<none_t>(0)) ;
 
     /**
      * Contains meta-functions to determine if an object of type `T` satisfies
@@ -93,6 +132,99 @@ namespace carlosb
 
     template <
         class T,
+        class Lender
+    >
+    class acquired_object
+    {
+    public:
+        using value_type    = T;
+        using lender_type   = Lender;
+
+        acquired_object()
+            : m_is_initialized(false)
+        {}
+
+        acquired_object(none_t)
+            : m_is_initialized(false)
+        {}
+
+        explicit
+        acquired_object(std::nullptr_t)
+            : m_is_initialized(false)
+        {}
+
+        explicit
+        acquired_object(T* obj, std::shared_ptr<Lender> lender)
+            :   m_obj(obj),
+                m_lender(lender),
+                m_is_initialized(true)
+        {
+            assert(obj);
+        }
+
+        acquired_object(acquired_object&& other)
+            :   m_obj(other.m_obj),
+                m_lender(std::move(other.m_lender)),
+                m_is_initialized(other.m_is_initialized)
+        {
+            other.m_obj = nullptr;
+        }
+
+        acquired_object(const acquired_object&) = delete;
+
+        T& operator*() 
+        {
+            if (!m_is_initialized)
+                throw std::logic_error("acquired_object::operator*(): Initialization is required for data access.");
+            else
+                return *m_obj;
+        }
+
+        bool operator==(const none_t) const
+        {
+            return !m_is_initialized;
+        }
+
+        bool operator!=(const none_t) const
+        {
+            return !(*this == none);
+        }
+
+        explicit
+        operator bool() const
+        {
+            return m_is_initialized;
+        }
+
+        acquired_object& operator=(acquired_object&& other)
+        {
+            // acquire ownership of the managed object
+            m_obj = other.m_obj;
+            other.m_obj = nullptr;
+
+            // obtain pointer of other lender
+            m_lender = std::move(other.m_lender);
+
+            // copy state
+            m_is_initialized = other.m_is_initialized;
+            other.m_is_initialized = false;
+
+            return *this;
+        }
+
+        ~acquired_object()
+        {
+            if (m_is_initialized)
+                typename lender_type::deleter_type{m_lender}(m_obj);
+        }
+    private:
+        T*                          m_obj;
+        std::shared_ptr<Lender>     m_lender;
+        bool                        m_is_initialized;
+    };
+
+    template <
+        class T,
         class Allocator,
         class Mutex
     >
@@ -113,28 +245,12 @@ namespace carlosb
          */
         class deleter;
     public:
-
-        /**
-         * @brief      An acquired object is that which has been acquired by an object
-         * manager. For this case, the acquired object is acquired through a call to the
-         * function `acquire()` on an `object_pool`.
-         * 
-         * Member Types
-         * ------------
-         * - `value_type`     Type of acquired object.
-         * - `lender_type`    Type of the object which has lent the object.
-         * - `deleter_type`   Type of deleter which will return `acquired_object` to the lender.
-         */
-        class acquired_object;
-
-    public:
-        // --- TYPEDEFS ---------------------------
         using value_type        = T;                        ///< Type managed by the pool.
         using lv_reference      = T&;                       ///< l-value reference.
         using rv_reference      = T&&;                      ///< r-value reference.
         using const_reference   = const T&;                 ///< const l-value reference.
 
-        using acquired_type     = acquired_object;          ///< Type of acquired objects.
+        using acquired_type     = acquired_object<T, impl>; ///< Type of acquired objects.
         using deleter_type      = deleter;                  ///< Custom deleter of pool. It returns objects back to the pool.
         using stack_type        = std::stack<T*>;           ///< Stack of pointers to the managed objects. Only contains unused objects.
 
@@ -149,62 +265,205 @@ namespace carlosb
             :   m_pool(std::make_shared<impl>(std::forward<Args>(args)...))
         {}
 
+        /**
+         * @brief      Acquires an object from the pool. 
+         * 
+         * @return     Acquired object.
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
         acquired_type acquire()
         {
             return m_pool->acquire();
         }
 
-        acquired_type acquire_lock()
+        /**
+         * @brief      Acquires an object from the pool.
+         *
+         * @return     Acquired object.
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         * 
+         * This method will lock until an object is available.
+         * One may achieve this manually by either:
+         * - pushing a new object to the pool
+         * - emplacing a new object into the pool
+         * - freeing other objects
+         */
+        acquired_type lock_acquire()
         {
-            return m_pool->acquire_lock();
+            return m_pool->lock_acquire();
         }
 
+
+        /**
+         * @brief      Acquires an object from the pool. 
+         * 
+         * @return     Acquired object.
+         * 
+         * @throws     std::out_of_range if no objects are in the pool.
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
+        acquired_type try_acquire()
+        {
+            return m_pool->try_acquire();
+        }
+
+        /**
+         * @brief      Pushes an object to the pool by copying it.
+         *
+         * @param[in]  value  Object to be copied into the pool.
+         * 
+         * Complexity
+         * ----------
+         * Amortized constant.
+         */
         void push(const_reference value)
         {
             m_pool->push(value);
         }
 
+        /**
+         * @brief      Pushes an object to the pool by moving it.
+         * 
+         * @param[in]  value  Object to be moved into the pool.
+         * 
+         * Complexity
+         * ----------
+         * Amortized constant.
+         */
         void push(rv_reference value)
         {
             m_pool->push(std::move(value));
         }
 
+        /**
+         * @brief      Pushes an object to the pool by constructing it.
+         *
+         * @param[in]  args       Arguments to be passed to the constructor of the object.
+         * 
+         * Complexity
+         * ----------
+         * Amortized constant.
+         */
         template <class... Args>
         void emplace(Args&&... args)
         {
             m_pool->emplace(std::forward<Args>(args)...);
         }
 
+        /**
+         * @brief      Resizes the pool to contain count elements.
+         * 
+         * @param[in]  count  Number of elements.
+         * 
+         * If the current size is greater than count, the container is reduced to its first count elements.
+         * If the current size is less than count, additional default-constructed elements are appended.
+         *
+         * Complexity
+         * ----------
+         * Linear in the difference between the current number of elements and count.
+         */
         void resize(size_type count)
         {
             m_pool->resize(count);
         }
 
+        /**
+         * @brief      Resizes the pool to contain count elements.
+         *
+         * If the current size is greater than count, the container is reduced to its first count elements.
+         * If the current size is less than count, additional copies of value are appended.
+         * 
+         * Complexity
+         * ----------
+         * Linear in the difference between the current number of elements and count.
+         * 
+         * @param[in]  count  Number of elements.
+         * @param[in]  value  Value to be copied.
+         */
         void resize(size_type count, const value_type& value)
         {
             m_pool->resize(count, value);
         }
 
-        void reserve(size_type count)
+        /**
+         * @brief      Reserves storage.
+         * 
+         * @param[in]  new_cap  New capacity of the pool
+         * 
+         * Increase the capacity of the vector to a value that's greater or equal to new_cap.
+         * 
+         * If new_cap is greater than the current capacity(), new storage is allocated, 
+         * otherwise the method does nothing.
+         * 
+         * Complexity
+         * ----------
+         * Linear in, at most linear in the element_count() of the pool.
+         */
+        void reserve(size_type new_cap)
         {
-            m_pool->reserve(count);
+            m_pool->reserve(new_cap);
         }
 
-        size_type size()
+        /**
+         * @brief      Returns the number of **free** elements in the pool.
+         *
+         * @return     The number of **free** elements in the pool.
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
+        size_type size() const
         {
             return m_pool->size();
         }
 
+        /**
+         * @brief      Returns the number of elements that can be held in currently allocated storage
+         * 
+         * @return     Capacity of the currently allocated storage.
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
         size_type capacity() const
         {
             return m_pool->capacity();
         }
 
-        bool empty()
+        /**
+         * @brief      Checks if the container has no **free** elements. i.e. whether size() == 0.
+         * 
+         * @return     `true` if no free elements are found, `false` otherwise
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
+        bool empty() const
         {
             return m_pool->empty();
         }
 
+        /**
+         * @brief      Checks if there are free elements in the pool.
+         * 
+         * @return     `true` if no free elements are found, `false` otherwise
+         * 
+         * Complexity
+         * ----------
+         * Constant.
+         */
         operator bool()
         {
             return m_pool->operator bool();
@@ -223,6 +482,8 @@ namespace carlosb
     {
         friend void deleter::operator()(T* ptr);
     public:
+        using deleter_type = deleter_type;
+
         impl()
             : impl(Allocator())
         {
@@ -268,15 +529,25 @@ namespace carlosb
             m_allocator.deallocate(m_pool, m_capacity);
         }
 
-        void reserve(size_type count)
+        void reserve(size_type new_cap)
         {
             lock_guard lock_pool(m_mutex);
             m_allocator.deallocate(m_pool, m_capacity);
-            m_pool = m_allocator.allocate(count);
-            m_capacity = count;
+            m_pool = m_allocator.allocate(new_cap);
+            m_capacity = new_cap;
         }
 
         acquired_type acquire()
+        {   
+            lock_guard lock_pool(m_mutex);
+            if (m_free.empty())
+                return acquired_type{};
+            acquired_type obj{m_free.top(), impl::shared_from_this()};
+            m_free.pop();
+            return std::move(obj);
+        }
+
+        acquired_type try_acquire()
         {   
             lock_guard lock_pool(m_mutex);
             if (m_free.empty())
@@ -286,53 +557,61 @@ namespace carlosb
             return std::move(obj);
         }
 
-        acquired_type acquire_lock()
+        acquired_type lock_acquire()
         {
             std::unique_lock<mutex_type> acq_lock(m_acq_mutex);
             m_objects_availabe.wait(acq_lock, [this] (void) { return !this->empty(); });
 
-            acquired_type acq(acquire());
+            acquired_type obj;
+            {
+                lock_guard lock_pool(m_mutex);
+                obj = std::move(acquired_type{m_free.top(), impl::shared_from_this()});
+                m_free.pop();
+            }
 
             acq_lock.unlock();
             m_objects_availabe.notify_one();
             
-            return acq;
+            return std::move(obj);
         }
 
         void push(const_reference value)
         {
-            lock_guard lock_pool(m_mutex);
-            if (m_size == m_capacity)
-                this->reallocate(m_capacity * 2);
-            m_pool[m_size] = value;
-            m_free.push(m_pool + m_size);
-            ++m_size;
-
+            {
+                lock_guard lock_pool(m_mutex);
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+                m_pool[m_size] = value;
+                m_free.push(m_pool + m_size);
+                ++m_size;
+            }
             m_objects_availabe.notify_one();
         }
 
         void push(rv_reference value)
         {
-            lock_guard lock_pool(m_mutex);
-            if (m_size == m_capacity)
-                this->reallocate(m_capacity * 2);
-            m_pool[m_size] = std::move(value);
-            m_free.push(m_pool + m_size);
-            ++m_size;
-
+            {
+                lock_guard lock_pool(m_mutex);
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+                m_pool[m_size] = std::move(value);
+                m_free.push(m_pool + m_size);
+                ++m_size;
+            }
             m_objects_availabe.notify_one();
         }
 
         template <class... Args>
         void emplace(Args&&... args)
         {
-            lock_guard lock_pool(m_mutex);
-            if (m_size == m_capacity)
-                this->reallocate(m_capacity * 2);
-            m_pool[m_size] = T(std::forward<Args>(args)...);
-            m_free.push(m_pool + m_size); 
-            ++m_size;
-
+            {
+                lock_guard lock_pool(m_mutex);
+                if (m_size == m_capacity)
+                    this->reallocate(m_capacity * 2);
+                m_pool[m_size] = T(std::forward<Args>(args)...);
+                m_free.push(m_pool + m_size); 
+                ++m_size;
+            }
             m_objects_availabe.notify_one();
         }
 
@@ -343,6 +622,9 @@ namespace carlosb
             {
                 if (count > m_capacity)
                     this->reallocate(count);
+
+                for (size_type i = m_size; i < count; ++i)
+                    m_pool[i] = T();
             }
             else
             {
@@ -371,9 +653,14 @@ namespace carlosb
             m_size = count;
         }
 
-        size_type size()
+        size_type size() const
         {
             return m_free.size();
+        }
+
+        size_type element_count() const
+        {
+            return m_size;
         }
 
         size_type capacity() const
@@ -381,7 +668,7 @@ namespace carlosb
             return m_capacity;
         }
 
-        bool empty()
+        bool empty() const
         {
             return size() == 0;
         }
@@ -404,8 +691,10 @@ namespace carlosb
 
         void return_object(T* obj)
         {
-            lock_guard lock_pool(m_mutex);
-            m_free.push(obj);
+            {
+                lock_guard lock_pool(m_mutex);
+                m_free.push(obj);
+            }
             m_objects_availabe.notify_one();
         }
 
@@ -416,8 +705,8 @@ namespace carlosb
         size_type                   m_capacity;             ///< Number of objects the pool can hold.
         mutex_type                  m_mutex;                ///< Controls access to the modifiers.
 
-        mutex_type                  m_acq_mutex;
-        std::condition_variable     m_objects_availabe;
+        mutex_type                  m_acq_mutex;            ///< Controls acquisition of objects.
+        std::condition_variable     m_objects_availabe;     ///< Indicates presence of free objects.
     };
 
     // --- deleter IMPLEMENTATION -----------------------------------
@@ -441,42 +730,6 @@ namespace carlosb
 
     private:
         std::weak_ptr<impl> m_pool_ptr;
-    };
-
-    template <
-        class T,
-        class Allocator,
-        class Mutex
-    >
-    class object_pool<T, Allocator, Mutex>::acquired_object
-    {
-    public:
-        using value_type    = T;
-        using lender_type   = object_pool<T>;
-        using deleter_type  = typename object_pool<T>::deleter_type;
-
-        acquired_object(std::unique_ptr<T, deleter_type> ptr)
-            : m_ptr(std::move(ptr))
-        {}
-
-        acquired_object(T* ptr, std::shared_ptr<impl> lender_ptr)
-            : acquired_object(std::unique_ptr<T, deleter_type>{ptr, deleter_type(lender_ptr)})
-        {}
-
-        auto operator*() 
-            -> decltype(std::declval<std::unique_ptr<T, deleter_type>>().operator*())
-        {
-            if (!m_ptr)
-                throw std::logic_error("Attempting to access data from an object that hasn't been acquired yet!");
-            return *m_ptr;
-        }
-
-        operator bool()
-        {
-            return static_cast<bool>(m_ptr);
-        }
-    private:
-        std::unique_ptr<T, deleter_type> m_ptr;
     };
 }
 #endif
