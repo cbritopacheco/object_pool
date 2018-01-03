@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+<!-- Begin Jekyll SEO tag v2.3.0 -->
+<title>index | Object Pool Documentation</title>
+<meta property="og:title" content="index" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A shared container for reusing object instances." />
+<meta property="og:description" content="A shared container for reusing object instances." />
+<link rel="canonical" href="http://localhost:4000/object_pool/index/" />
+<meta property="og:url" content="http://localhost:4000/object_pool/index/" />
+<meta property="og:site_name" content="Object Pool Documentation" />
+<script type="application/ld+json">
+{"name":null,"description":"A shared container for reusing object instances.","author":null,"@type":"WebPage","url":"http://localhost:4000/object_pool/index/","publisher":null,"image":null,"headline":"index","dateModified":null,"datePublished":null,"sameAs":null,"mainEntityOfPage":null,"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/object_pool/assets/css/style.css?v=894d2172f274709231370294dd1bba5474263174">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="/object_pool/assets/js/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="/object_pool/assets/css/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="http://github.com/carlosb/object_pool">View On GitHub</a></li>
+          
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Object Pool Documentation</h1>
+          <p>A shared container for reusing object instances.</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="http://github.com/carlosb">carlosb</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <p><a href="https://github.com/carlosb/object_pool/blob/master/LICENSE"><img src="https://img.shields.io/github/license/carlosb/object_pool.svg" alt="GitHub license" /></a></p>
+
+<h1 id="object_pool">object_pool</h1>
+
+<p>An <code class="highlighter-rouge">object_pool</code> is a container which provides shared access to a collection of instances of one object of type <code class="highlighter-rouge">T</code>. One only need to include the header <code class="highlighter-rouge">object_pool.hpp</code> to be able to use the interface. Even more, the interface is designed <em>á la</em> STL for ease of use! Take the following example for demonstration purposes:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include "object_pool.hpp"
+</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">carlosb</span><span class="p">;</span>
+
+<span class="k">struct</span> <span class="n">expensive_object</span>
+<span class="p">{</span>
+	<span class="n">expensive_object</span><span class="p">()</span>
+	<span class="p">{</span>
+		<span class="cm">/* very expensive construction */</span>
+	<span class="p">}</span>
+<span class="p">};</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="n">object_pool</span><span class="o">&lt;</span><span class="n">expensive_object</span><span class="o">&gt;</span> <span class="n">pool</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span> <span class="c1">// pool of 10 objects!
+</span>
+	<span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="n">acquire</span><span class="p">())</span>
+		<span class="n">doSomething</span><span class="p">(</span><span class="o">*</span><span class="n">obj</span><span class="p">);</span>
+	<span class="k">else</span>
+		<span class="n">doSomethingElse</span><span class="p">();</span>
+	
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h1 id="table-of-contents">Table of Contents</h1>
+<ol>
+  <li><a href="#basic-example">Basic Example</a></li>
+  <li><a href="#thread-safety">Thread Safety</a></li>
+  <li><a href="#license">License</a></li>
+</ol>
+
+<h1 id="basic-example">Basic Example</h1>
+
+<h2 id="acquisition-of-an-object">Acquisition of an object</h2>
+<p>To illustrate a typical call to an access function we provide the following example:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;iostream&gt;
+#include "object_pool.hpp"
+</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">carlosb</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">object_pool</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">pool</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="n">acquire</span><span class="p">())</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"We acquired: "</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">obj</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="k">else</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"We didn't acquire an object"</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Output:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>We acquired: 10
+</code></pre></div></div>
+
+<p>This program does the following:</p>
+
+<ol>
+  <li>Create an object pool containing 5 integers with the default value <code class="highlighter-rouge">10</code></li>
+  <li>Acquire an object and check if it is valid</li>
+  <li>Access the object by dereferencing it <code class="highlighter-rouge">*obj</code></li>
+</ol>
+
+<h2 id="failure-to-acquire-an-object">Failure to acquire an object</h2>
+
+<p>In the previous example, we constructed an <code class="highlighter-rouge">object_pool&lt;int&gt;</code> of 5 integers with the default value <code class="highlighter-rouge">10</code>. Now, we will construct the same <code class="highlighter-rouge">object_pool&lt;int&gt;</code> with 5 spaces, but instead we will not pass a default value.</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;iostream&gt;
+#include "object_pool.hpp"
+</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">carlosb</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">object_pool</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">pool</span><span class="p">;</span> 	<span class="c1">// empty pool
+</span>    <span class="n">pool</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span> 		<span class="c1">// reserve 5 spaces, but don't construct any objects
+</span>
+    <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="n">acquire</span><span class="p">())</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"We acquired: "</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">obj</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="k">else</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"We didn't acquire an object"</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Output:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>We didn't acquire an object
+</code></pre></div></div>
+
+<h1 id="thread-safety">Thread Safety</h1>
+<p>Through the use of mutexes, <strong>all of the functions in</strong> <code class="highlighter-rouge">object_pool</code> <strong>are thread safe</strong>. This, however, turns our attention to the <strong>synchronized access of objects</strong> in the pool. That is, what if a thread wants to <code class="highlighter-rouge">acquire()</code> an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Waits until there is a free object in the pool or the time limit is reached.
+</span><span class="n">acquired_type</span> <span class="n">lock_acquire</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">milliseconds</span> <span class="n">time_limit</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">nanoseconds</span><span class="o">::</span><span class="n">zero</span><span class="p">());</span>
+</code></pre></div></div>
+
+<p>which is different from</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Attempts to acquire an object instantaneously
+</span><span class="n">acquired_type</span> <span class="n">acquire</span><span class="p">();</span>
+</code></pre></div></div>
+
+<p>The method <code class="highlighter-rouge">lock_acquire()</code> will wait until there is a free object in the pool. If <code class="highlighter-rouge">time_limit = std::chrono::nanoseconds::zero()</code> then it will wait indefinitely. In particular, this method must be used with great care since if the condition before is met, it might lead to deadlocks. You will still need to check whether you acquired an object or not, but at least you now have a simple interface to control these parameters.</p>
+
+<p>To see a very basic use of  <code class="highlighter-rouge">lock_acquire()</code> in action, we present an example in the following section.</p>
+
+<h3 id="example">Example</h3>
+
+<p>The following program does the following:</p>
+
+<ol>
+  <li>Creates a pool with only one string</li>
+  <li>Creates two threads: <code class="highlighter-rouge">t1</code> and <code class="highlighter-rouge">t2</code></li>
+  <li><code class="highlighter-rouge">t2</code> goes to sleep</li>
+  <li><code class="highlighter-rouge">t1</code> acquires the only object</li>
+  <li><code class="highlighter-rouge">t1</code> goes to sleep for 5 seconds</li>
+  <li><code class="highlighter-rouge">t2</code> tries to acquire the object and it must wait for <code class="highlighter-rouge">t1</code> to wake up</li>
+  <li><code class="highlighter-rouge">t1</code> wakes up</li>
+  <li><code class="highlighter-rouge">t2</code> acquires the object</li>
+</ol>
+
+<p>The modification of the string lets us see that the objects are indeed shared across scopes and/or threads.</p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include &lt;thread&gt;
+#include "object_pool.hpp"
+</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="n">carlosb</span><span class="p">;</span>
+
+<span class="n">object_pool</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">pool</span><span class="p">;</span>   <span class="c1">// Shared pool of strings
+</span><span class="n">mutex</span> <span class="n">io_mutex</span><span class="p">;</span>             <span class="c1">// Used to control access to std::cout
+</span>
+
+<span class="kt">void</span> <span class="nf">worker1</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 1]: Acquiring objects...</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// acquire object
+</span>    <span class="k">auto</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="n">lock_acquire</span><span class="p">();</span>
+
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        
+        <span class="n">cout</span>
+            <span class="o">&lt;&lt;</span> <span class="s">"[Worker 1]: I have acquired this from the pool: </span><span class="se">\'</span><span class="s">"</span> 
+            <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">obj</span>
+            <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\'\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// modify object
+</span>    <span class="o">*</span><span class="n">obj</span> <span class="o">=</span> <span class="s">"Modified from Worker 1"</span><span class="p">;</span>
+
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 1]: Sleeping for 5 seconds..."</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// sleep for 5 seconds
+</span>    <span class="n">this_thread</span><span class="o">::</span><span class="n">sleep_for</span><span class="p">(</span><span class="n">chrono</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
+
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 1]: Waking up!"</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">worker2</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 2]: Sleeping for 1 second..."</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// sleep for 1 seconds so worker1 gets a hold of the object first
+</span>    <span class="n">this_thread</span><span class="o">::</span><span class="n">sleep_for</span><span class="p">(</span><span class="n">chrono</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 2]: Waking up!"</span> <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"[Worker 2]: Acquiring objects...</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">auto</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="n">lock_acquire</span><span class="p">();</span>
+
+    <span class="p">{</span>
+        <span class="n">lock_guard</span><span class="o">&lt;</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock_cout</span><span class="p">(</span><span class="n">io_mutex</span><span class="p">);</span>
+        <span class="n">cout</span>
+            <span class="o">&lt;&lt;</span> <span class="s">"[Worker 2]: I have acquired this from the pool: </span><span class="se">\'</span><span class="s">"</span> 
+            <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">obj</span>
+            <span class="o">&lt;&lt;</span> <span class="s">"</span><span class="se">\'\n</span><span class="s">"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="k">const</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>   
+    <span class="c1">// declare two threads
+</span>    <span class="n">std</span><span class="o">::</span><span class="kr">thread</span> <span class="n">t1</span><span class="p">(</span><span class="n">worker1</span><span class="p">),</span> <span class="n">t2</span><span class="p">(</span><span class="n">worker2</span><span class="p">);</span>
+
+    <span class="c1">// push the string into the pool
+</span>    <span class="n">pool</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="s">"Hello World!"</span><span class="p">);</span>
+
+    <span class="c1">// join the threads
+</span>    <span class="n">t1</span><span class="p">.</span><span class="n">join</span><span class="p">();</span>
+    <span class="n">t2</span><span class="p">.</span><span class="n">join</span><span class="p">();</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Output:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[Worker 1]: Acquiring objects...
+[Worker 2]: Sleeping for 1 second...
+[Worker 1]: I have acquired this from the pool: 'Hello World!'
+[Worker 1]: Sleeping for 5 seconds...
+[Worker 2]: Waking up!
+[Worker 2]: Acquiring objects...
+[Worker 1]: Waking up!
+[Worker 2]: I have acquired this from the pool: 'Modified from Worker 1'
+</code></pre></div></div>
+
+<h1 id="license">License</h1>
+
+<p>The software is licensed under the <a href="https://choosealicense.com/licenses/apache-2.0/">Apache License 2.0</a>.</p>
+
+
+      </section>
+
+    </div>
+
+    
+  </body>
+</html>
