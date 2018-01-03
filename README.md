@@ -1,6 +1,6 @@
 [![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
 
-# `object_pool`
+# object_pool
 
 An `object_pool` is a some kind of container which provides shared access to a collection of instances of one object of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
 
@@ -105,7 +105,7 @@ We didn't acquire an object
 
 
 # Thread Safety
-Through the use of mutexes, all of the functions in `object_pool` are thread safe. This, however, turns our attention to the **synchronized access of objects** in the pool. That is, what if a thread wants to `acquire()` an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:
+Through the use of mutexes, **all of the functions in** `object_pool` **are thread safe**. This, however, turns our attention to the **synchronized access of objects** in the pool. That is, what if a thread wants to `acquire()` an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:
 
 ```c++
 // Waits until there is a free object in the pool or the time limit is reached.
