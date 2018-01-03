@@ -1,3 +1,8 @@
+---
+title: index
+permalink: /index/
+---
+
 [![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
 
 # object_pool

@@ -1,3 +1,9 @@
+---
+layout: blank
+title: object_pool
+permalink: /object_pool/
+---
+
 # carlosb::object_pool
 Defined in header [`object_pool.hpp`](../object_pool.hpp)
 
