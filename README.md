@@ -1,6 +1,6 @@
 [![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
 
-The full documentation can be found [here](https://carlosb.github.io/object_pool…)https://carlosb.github.io/object_pool….
+The full documentation can be found [here](https://carlosb.github.io/object_pool/index).
 
 # object_pool
 
