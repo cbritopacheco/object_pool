@@ -21,9 +21,7 @@ int main()
 {
 	object_pool<expensive_object> pool(10); // pool of 10 objects!
 
-	auto obj = pool.acquire();
-	
-	if (obj)
+	if (auto obj = pool.acquire())
 		doSomething(*obj);
 	else
 		doSomethingElse();
