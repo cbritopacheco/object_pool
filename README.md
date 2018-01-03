@@ -45,7 +45,7 @@ using namespace carlosb;
 
 int main()
 {
-    object_pool<int> pool(5, 10);
+    object_pool<int> pool(5, 10);  // pool of 5 integers with default value 10
 
     if (auto obj = pool.acquire())
         cout << "We acquired: " << *obj << "\n";
