@@ -23,7 +23,7 @@ github_username:  carlosb
 
 # Build settings
 markdown: kramdown
-theme: jekyll-theme-midnight
+# theme: jekyll-theme-midnight
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
