@@ -37,6 +37,5 @@ exclude:
   - vendor/gems/
   - vendor/ruby/
 
-include: ["_pages"]
-
 theme: jekyll-theme-minimal
+include: ["_pages", "_layouts"]

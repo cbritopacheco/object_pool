@@ -36,3 +36,6 @@
 
 # Other
 *.dSYM
+
+# Jekyll
+_site/
