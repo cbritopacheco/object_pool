@@ -1,8 +1,8 @@
-<!doctype html>
-<html lang="en-US">
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <!-- Begin Jekyll SEO tag v2.3.0 -->
 <title>index | Object Pool Documentation</title>
@@ -17,42 +17,19 @@
 {"name":null,"description":"A shared container for reusing object instances.","author":null,"@type":"WebPage","url":"http://localhost:4000/object_pool/index/","publisher":null,"image":null,"headline":"index","dateModified":null,"datePublished":null,"sameAs":null,"mainEntityOfPage":null,"@context":"http://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 
-    <link rel="stylesheet" href="/object_pool/assets/css/style.css?v=894d2172f274709231370294dd1bba5474263174">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-    <script src="/object_pool/assets/js/respond.js"></script>
-    <!--[if lt IE 9]>
-      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-    <!--[if lt IE 8]>
-    <link rel="stylesheet" href="/object_pool/assets/css/ie.css">
-    <![endif]-->
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-
+    <link href="/object_pool/assets/css/style.css?v=0d9a439384f4d0dadfeaff5842fc634dfcf93b60" rel="stylesheet">
   </head>
   <body>
-      <div id="header">
-        <nav>
-          <li class="fork"><a href="http://github.com/carlosb/object_pool">View On GitHub</a></li>
-          
-        </nav>
-      </div><!-- end header -->
+    <div class="container-lg px-3 my-5 markdown-body">
+      
+        <h1><a href="http://localhost:4000/object_pool/">Object Pool Documentation</a></h1>
+      
 
-    <div class="wrapper">
-
-      <section>
-        <div id="title">
-          <h1>Object Pool Documentation</h1>
-          <p>A shared container for reusing object instances.</p>
-          <hr>
-          <span class="credits left">Project maintained by <a href="http://github.com/carlosb">carlosb</a></span>
-          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
-        </div>
-
-        <p><a href="https://github.com/carlosb/object_pool/blob/master/LICENSE"><img src="https://img.shields.io/github/license/carlosb/object_pool.svg" alt="GitHub license" /></a></p>
+      <p><a href="https://github.com/carlosb/object_pool/blob/master/LICENSE"><img src="https://img.shields.io/github/license/carlosb/object_pool.svg" alt="GitHub license" /></a></p>
 
 <h1 id="object_pool">object_pool</h1>
 
-<p>An <code class="highlighter-rouge">object_pool</code> is a container which provides shared access to a collection of instances of one object of type <code class="highlighter-rouge">T</code>. One only need to include the header <code class="highlighter-rouge">object_pool.hpp</code> to be able to use the interface. Even more, the interface is designed <em>á la</em> STL for ease of use! Take the following example for demonstration purposes:</p>
+<p>An <code class="highlighter-rouge">object_pool</code> is a container which provides shared access to a collection of object instances of type <code class="highlighter-rouge">T</code>. One only need to include the header <code class="highlighter-rouge">object_pool.hpp</code> to be able to use the interface. Even more, the interface is designed <em>á la</em> STL for ease of use! Take the following example for demonstration purposes:</p>
 
 <div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include "object_pool.hpp"
 </span>
@@ -292,10 +269,9 @@
 <p>The software is licensed under the <a href="https://choosealicense.com/licenses/apache-2.0/">Apache License 2.0</a>.</p>
 
 
-      </section>
-
+      
     </div>
-
-    
+    <script src="/object_pool/assets/javascript/anchor-js/anchor.min.js"></script>
+    <script>anchors.add();</script>
   </body>
 </html>
