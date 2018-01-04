@@ -6,7 +6,7 @@ permalink: /classes/object_pool/
 # carlosb::object_pool
 Defined in header [`object_pool.hpp`](/header/object_pool/)
 
-```c++
+```cpp
 template<
         class T,
         class Allocator     = std::allocator<T>,
@@ -70,7 +70,7 @@ n/a
 ### Return Value
 The acquired object. You can access it by dereferencing it like this:
 
-```c++
+```cpp
 auto obj = pool.acquire();
 doSomething(*obj);
 ```

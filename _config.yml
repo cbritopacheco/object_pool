@@ -38,3 +38,5 @@ exclude:
   - vendor/ruby/
 
 include: ["_pages"]
+
+theme: jekyll-theme-minimal
