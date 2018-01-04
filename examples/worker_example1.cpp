@@ -1,3 +1,23 @@
+/**
+ * Example illustrating a pool being locked until it acquires a resource.
+ * 
+ * Usage:
+ * ./build/examples/worker_example1
+ * 
+ * Expected output:
+ * 
+ * ```
+ * [Worker 1]: Acquiring objects...
+ * [Worker 2]: Sleeping for 1 second...
+ * [Worker 1]: I have acquired this from the pool: 'Hello World!'
+ * [Worker 1]: Sleeping for 5 seconds...
+ * [Worker 2]: Waking up!
+ * [Worker 2]: Acquiring objects...
+ * [Worker 1]: Waking up!
+ * [Worker 2]: I have acquired this from the pool: 'Modified from Worker 1'
+ * ```
+ */
+#include <iostream>
 #include <thread>
 #include "object_pool.hpp"
 
