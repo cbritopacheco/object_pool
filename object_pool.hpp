@@ -39,43 +39,12 @@ namespace carlosb
     template <
         class T,
         class Allocator         = std::allocator<T>,
-        class DefaultDeleter    = std::default_delete<T>,
         class Mutex             = std::mutex
     >
     class object_pool;
 
-    /**
-     * @brief      Class for acquired object.
-     * 
-     * @tparam     T       Type of acquired object.
-     * 
-     * @tparam     Lender  Type which lends the object.
-     * 
-     * An acquired object is that which has been acquired from a Lender. The lender must
-     * have defined `Lender::deleter_type` along with a method `Lender::return_object(T* obj)`.
-     * 
-     * 
-     * Example
-     * -------
-     * An object of this type can be used like this:
-     * 
-     * ```c++
-     * auto obj = pool.acquire();
-     * if (obj)
-     *     cout << *obj << "\n";
-     * else
-     *     cout << "The acquired object is invalid." << "\n";
-     * ```
-     * 
-     * Notes
-     * -----
-     * Attempting to access an invalid `acquired_object` will result in a `std::logic_error` being thrown.
-     */
-    template <
-        class T,
-        class Lender
-    >
-    class acquired_object;
+    template <class T>
+    using acquired_object = typename object_pool<T>::acquired_object;
 
     /**
      * Contains types needed by the implementation.
@@ -134,7 +103,6 @@ namespace carlosb
     template <
         class T,
         class Allocator,
-        class DefaultDeleter,
         class Mutex
     >
     class object_pool
@@ -171,18 +139,40 @@ namespace carlosb
         using mutex_type        = Mutex;                    ///< Type of mutex.
         using lock_guard        = std::lock_guard<Mutex>;   ///< Type of lock guard.
 
+        /**
+         * @brief      Constructs an empty pool.
+         */
         object_pool()
-            :   m_pool(std::make_shared<impl>())
+            : object_pool(Allocator())
         {}
 
+        /**
+         * @brief      Constructs an empty pool with the given allocator.
+         *
+         * @param[in]  alloc  The allocator.
+         */
+        explicit
         object_pool(const Allocator& alloc)
             :   m_pool(std::make_shared<impl>(alloc))
         {}
 
+        /**
+         * @brief      Constructs a pool with `count` copies of `value`.
+         *
+         * @param[in]  count  Number of elements.
+         * @param[in]  value  Value to be copied.
+         * @param[in]  alloc  Allocator to be used.
+         */
         object_pool(size_type count, const T& value, const Allocator& alloc = Allocator())
             :   m_pool(std::make_shared<impl>(count, value, alloc))
         {}
 
+        /**
+         * @brief      Constructs the container with count default-inserted instances of T. No copies are made.
+         *
+         * @param[in]  count  Number of default-inserted elements.
+         * @param[in]  alloc  Allocator to be used.
+         */
         explicit
         object_pool(size_type count, const Allocator& alloc = Allocator())
             :   m_pool(std::make_shared<impl>(count, alloc))
@@ -416,20 +406,12 @@ namespace carlosb
     template <
         class T,
         class Allocator,
-        class DefaultDeleter,
         class Mutex
     >
-    class object_pool<T, Allocator, DefaultDeleter, Mutex>::impl : public std::enable_shared_from_this<impl>
+    class object_pool<T, Allocator, Mutex>::impl : public std::enable_shared_from_this<impl>
     {
     public:
         using deleter_type = deleter_type;
-
-        impl()
-            :   impl(Allocator())
-        {
-            static_assert(std::is_default_constructible<Allocator>::value,
-                          "Allocator must be DefaultConstructible to use this constructor.");
-        }
 
         explicit
         impl(const Allocator& alloc)
@@ -450,7 +432,7 @@ namespace carlosb
 
             m_pool = m_allocator.allocate(m_capacity);
             for (size_type i = 0; i < m_size; ++i)
-                m_pool[i] = T(value);
+                ::new((void *) (m_pool + i)) T(value);
 
             for (size_type i = 0; i < m_size; ++i)
                 m_free.push(m_pool + i);
@@ -464,7 +446,7 @@ namespace carlosb
         {
             m_pool = m_allocator.allocate(m_capacity);
             for (size_type i = 0; i < m_size; ++i)
-                m_pool[i] = T();
+                ::new((void *) (m_pool + i)) T();
 
             for (size_type i = 0; i < m_size; ++i)
                 m_free.push(m_pool + i);
@@ -591,6 +573,7 @@ namespace carlosb
             return *this;
         }
 
+        // called until the last shared_ptr to *this is destroyed
         ~impl()
         {
             lock_guard lock_pool(m_mutex);
@@ -767,6 +750,19 @@ namespace carlosb
         {
             return size() > 0;
         }
+
+        void swap(impl& other)
+        {
+            using std::swap;
+
+            lock_guard this_lock(m_mutex);
+            lock_guard other_lock(other.m_mutex);
+
+            swap(m_pool, other.m_pool);
+            swap(m_free, other.m_free);
+            swap(m_allocator, other.m_allocator);
+        }
+
     private:
         inline void reallocate(size_type count)
         {
@@ -794,10 +790,9 @@ namespace carlosb
     template <
         class T,
         class Allocator,
-        class DefaultDeleter,
         class Mutex
     >
-    class object_pool<T, Allocator, DefaultDeleter, Mutex>::deleter
+    class object_pool<T, Allocator, Mutex>::deleter
     {
     public:
         deleter(std::weak_ptr<impl> pool_ptr)
@@ -808,8 +803,6 @@ namespace carlosb
         {
             if (auto pool = m_pool_ptr.lock())
                 pool->return_object(ptr);
-            else
-                DefaultDeleter{}(ptr);
         }
     private:
         std::weak_ptr<impl> m_pool_ptr;
@@ -818,10 +811,9 @@ namespace carlosb
     template <
         class T,
         class Allocator,
-        class DefaultDeleter,
         class Mutex
     >
-    class object_pool<T, Allocator, DefaultDeleter, Mutex>::acquired_object
+    class object_pool<T, Allocator, Mutex>::acquired_object
     {
     public:
         acquired_object()
