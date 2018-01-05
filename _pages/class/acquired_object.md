@@ -1,6 +1,6 @@
 ---
 title: acquired_object
-permalink: /class/acquired_object
+permalink: /class/acquired_object/
 layout: default
 ---
 
