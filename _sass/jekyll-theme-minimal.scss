@@ -56,7 +56,7 @@ a:hover small {
 }
 
 .wrapper {
-  width:860px;
+  width:640px;
   margin:0 auto;
 }
 
@@ -105,9 +105,10 @@ img {
 }
 
 header {
-  width:270px;
-  float:left;
-  position:fixed;
+  width:auto;
+  margin:auto;
+  float:none;
+  position:static;
   -webkit-font-smoothing:subpixel-antialiased;
 }
 
@@ -118,11 +119,13 @@ header ul {
   background: #f4f4f4;
   border-radius:5px;
   border:1px solid #e0e0e0;
-  width:270px;
+  width:500px;
+  margin:auto;
+  margin-bottom:50px;
 }
 
 header li {
-  width:89px;
+  width:100px;
   float:left;
   border-right:1px solid #e0e0e0;
   height:40px;
@@ -160,9 +163,9 @@ strong {
   font-weight:700;
 }
 
-header ul li + li + li {
+header ul li + li + li + li {
   border-right:none;
-  width:89px;
+  width:150px;
 }
 
 header ul a strong {
@@ -172,8 +175,9 @@ header ul a strong {
 }
 
 section {
-  width:500px;
-  float:right;
+  width:auto;
+  margin:auto;
+  float:none;
   padding-bottom:50px;
 }
 
@@ -190,8 +194,8 @@ hr {
 
 footer {
   width:270px;
-  float:left;
-  position:fixed;
+  float:right;
+  position:static;
   bottom:50px;
   -webkit-font-smoothing:subpixel-antialiased;
 }

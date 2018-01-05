@@ -21,3 +21,6 @@ show_downloads: true
 google_analytics:
 theme: jekyll-theme-minimal
 include: ["_pages"]
+
+values:
+      layout: "default"

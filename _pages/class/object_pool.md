@@ -1,6 +1,7 @@
 ---
 title: object_pool
 permalink: /class/object_pool/
+layout: default
 ---
 
 # carlosb::object_pool
