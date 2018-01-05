@@ -43,9 +43,6 @@ namespace carlosb
     >
     class object_pool;
 
-    template <class T>
-    using acquired_object = typename object_pool<T>::acquired_object;
-
     /**
      * Contains types needed by the implementation.
      */
