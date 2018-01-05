@@ -1,251 +1,123 @@
 ---
-title: Home
-layout: home
+layout: default
 ---
 
-[![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
+Text can be **bold**, _italic_, or ~~strikethrough~~.
 
-# object_pool
+[Link to another page](another-page).
 
-An `object_pool` is a container which provides shared access to a collection of object instances of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
+There should be whitespace between paragraphs.
 
-```c++
-#include "object_pool.hpp"
+There should be whitespace between paragraphs. We recommend including a README, or a file with information about your project.
 
-using namespace carlosb;
+# [](#header-1)Header 1
 
-struct expensive_object
-{
-	expensive_object()
-	{
-		/* very expensive construction */
-	}
-};
+This is a normal paragraph following a header. GitHub is a code hosting platform for version control and collaboration. It lets you and others work together on projects from anywhere.
 
-int main()
-{
-	object_pool<expensive_object> pool(10); // pool of 10 objects!
+## [](#header-2)Header 2
 
-	if (auto obj = pool.acquire())
-		doSomething(*obj);
-	else
-		doSomethingElse();
-	
-	return 0;
+> This is a blockquote following a header.
+>
+> When something is important enough, you do it even if the odds are not in your favor.
+
+### [](#header-3)Header 3
+
+```js
+// Javascript code with syntax highlighting.
+var fun = function lang(l) {
+  dateformat.i18n = require('./lang/' + l)
+  return true;
 }
 ```
 
-# Table of Contents
-1. [Basic Example](#basic-example)
-2. [Thread Safety](#thread-safety)
-3. [License](#license)
-
-# Basic Example
-
-## Acquisition of an object
-To illustrate a typical call to an access function we provide the following example:
-
-```c++
-#include <iostream>
-#include "object_pool.hpp"
-
-using namespace std;
-using namespace carlosb;
-
-int main()
-{
-    object_pool<int> pool(5, 10);
-
-    if (auto obj = pool.acquire())
-        cout << "We acquired: " << *obj << "\n";
-    else
-        cout << "We didn't acquire an object" << "\n";
-
-    return 0;
-}
+```ruby
+# Ruby code with syntax highlighting
+GitHubPages::Dependencies.gems.each do |gem, version|
+  s.add_dependency(gem, "= #{version}")
+end
 ```
 
-Output:
+#### [](#header-4)Header 4
+
+*   This is an unordered list following a header.
+*   This is an unordered list following a header.
+*   This is an unordered list following a header.
+
+##### [](#header-5)Header 5
+
+1.  This is an ordered list following a header.
+2.  This is an ordered list following a header.
+3.  This is an ordered list following a header.
+
+###### [](#header-6)Header 6
+
+| head1        | head two          | three |
+|:-------------|:------------------|:------|
+| ok           | good swedish fish | nice  |
+| out of stock | good and plenty   | nice  |
+| ok           | good `oreos`      | hmm   |
+| ok           | good `zoute` drop | yumm  |
+
+### There's a horizontal rule below this.
+
+* * *
+
+### Here is an unordered list:
+
+*   Item foo
+*   Item bar
+*   Item baz
+*   Item zip
+
+### And an ordered list:
+
+1.  Item one
+1.  Item two
+1.  Item three
+1.  Item four
+
+### And a nested list:
+
+- level 1 item
+  - level 2 item
+  - level 2 item
+    - level 3 item
+    - level 3 item
+- level 1 item
+  - level 2 item
+  - level 2 item
+  - level 2 item
+- level 1 item
+  - level 2 item
+  - level 2 item
+- level 1 item
+
+### Small image
+
+![](https://assets-cdn.github.com/images/icons/emoji/octocat.png)
+
+### Large image
+
+![](https://guides.github.com/activities/hello-world/branching.png)
+
+
+### Definition lists can be used with HTML syntax.
+
+<dl>
+<dt>Name</dt>
+<dd>Godzilla</dd>
+<dt>Born</dt>
+<dd>1952</dd>
+<dt>Birthplace</dt>
+<dd>Japan</dd>
+<dt>Color</dt>
+<dd>Green</dd>
+</dl>
 
 ```
-We acquired: 10
+Long, single-line code blocks should not wrap. They should horizontally scroll if they are too long. This line should be long enough to demonstrate this.
 ```
 
-This program does the following:
-
-1. Create an object pool containing 5 integers with the default value `10`
-2. Acquire an object and check if it is valid
-3. Access the object by dereferencing it `*obj`
-
-## Failure to acquire an object
-
-In the previous example, we constructed an `object_pool<int>` of 5 integers with the default value `10`. Now, we will construct the same `object_pool<int>` with 5 spaces, but instead we will not pass a default value.
-
-```c++
-#include <iostream>
-#include "object_pool.hpp"
-
-using namespace std;
-using namespace carlosb;
-
-int main()
-{
-    object_pool<int> pool; 	// empty pool
-    pool.reserve(5); 		// reserve 5 spaces, but don't construct any objects
-
-    if (auto obj = pool.acquire())
-        cout << "We acquired: " << *obj << "\n";
-    else
-        cout << "We didn't acquire an object" << "\n";
-
-    return 0;
-}
 ```
-
-Output:
-
+The final element.
 ```
-We didn't acquire an object
-```
-
-
-# Thread Safety
-Through the use of mutexes, **all of the functions in** `object_pool` **are thread safe**. This, however, turns our attention to the **synchronized access of objects** in the pool. That is, what if a thread wants to `acquire()` an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:
-
-```c++
-// Waits until there is a free object in the pool or the time limit is reached.
-acquired_type lock_acquire(std::chrono::milliseconds time_limit = std::chrono::nanoseconds::zero());
-```
-
-which is different from
-
-```c++
-// Attempts to acquire an object instantaneously
-acquired_type acquire();
-```
-
-The method `lock_acquire()` will wait until there is a free object in the pool. If `time_limit = std::chrono::nanoseconds::zero()` then it will wait indefinitely. In particular, this method must be used with great care since if the condition before is met, it might lead to deadlocks. You will still need to check whether you acquired an object or not, but at least you now have a simple interface to control these parameters.
-
-To see a very basic use of  `lock_acquire()` in action, we present an example in the following section.
-
-### Example
-
-The following program does the following:
-
-1. Creates a pool with only one string
-2. Creates two threads: `t1` and `t2`
-3. `t2` goes to sleep
-4. `t1` acquires the only object
-5. `t1` goes to sleep for 5 seconds
-6. `t2` tries to acquire the object and it must wait for `t1` to wake up
-7. `t1` wakes up
-8. `t2` acquires the object
-
-The modification of the string lets us see that the objects are indeed shared across scopes and/or threads.
-
-```c++
-#include <thread>
-#include "object_pool.hpp"
-
-using namespace std;
-using namespace carlosb;
-
-object_pool<string> pool;   // Shared pool of strings
-mutex io_mutex;             // Used to control access to std::cout
-
-
-void worker1()
-{
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout << "[Worker 1]: Acquiring objects...\n";
-    }
-
-    // acquire object
-    auto obj = pool.lock_acquire();
-
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        
-        cout
-            << "[Worker 1]: I have acquired this from the pool: \'" 
-            << *obj
-            << "\'\n";
-    }
-
-    // modify object
-    *obj = "Modified from Worker 1";
-
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout << "[Worker 1]: Sleeping for 5 seconds..." << "\n";
-    }
-
-    // sleep for 5 seconds
-    this_thread::sleep_for(chrono::seconds(5));
-
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout << "[Worker 1]: Waking up!" << "\n";
-    }
-}
-
-void worker2()
-{
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout << "[Worker 2]: Sleeping for 1 second..." << "\n";
-    }
-
-    // sleep for 1 seconds so worker1 gets a hold of the object first
-    this_thread::sleep_for(chrono::seconds(1));
-
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout << "[Worker 2]: Waking up!" << "\n";
-        cout << "[Worker 2]: Acquiring objects...\n";
-    }
-
-    auto obj = pool.lock_acquire();
-
-    {
-        lock_guard<mutex> lock_cout(io_mutex);
-        cout
-            << "[Worker 2]: I have acquired this from the pool: \'" 
-            << *obj
-            << "\'\n";
-    }
-}
-
-int main(int argc, char const *argv[])
-{   
-    // declare two threads
-    std::thread t1(worker1), t2(worker2);
-
-    // push the string into the pool
-    pool.push("Hello World!");
-
-    // join the threads
-    t1.join();
-    t2.join();
-
-    return 0;
-}
-```
-
-Output:
-
-```
-[Worker 1]: Acquiring objects...
-[Worker 2]: Sleeping for 1 second...
-[Worker 1]: I have acquired this from the pool: 'Hello World!'
-[Worker 1]: Sleeping for 5 seconds...
-[Worker 2]: Waking up!
-[Worker 2]: Acquiring objects...
-[Worker 1]: Waking up!
-[Worker 2]: I have acquired this from the pool: 'Modified from Worker 1'
-```
-
-# License
-
-The software is licensed under the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).

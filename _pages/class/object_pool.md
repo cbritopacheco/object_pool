@@ -1,6 +1,6 @@
 ---
 title: object_pool
-permalink: /classes/object_pool/
+permalink: /class/object_pool/
 ---
 
 # carlosb::object_pool
