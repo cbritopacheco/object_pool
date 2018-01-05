@@ -55,7 +55,7 @@ using namespace carlosb;
 
 int main()
 {
-    object_pool<int> pool(5, 10);
+    object_pool<int> pool(5, 10); // pool of 5 objects, each with the value 10
 
     if (auto obj = pool.acquire())
         cout << "We acquired: " << *obj << "\n";
@@ -92,7 +92,6 @@ using namespace carlosb;
 int main()
 {
     object_pool<int> pool; 	// empty pool
-    pool.reserve(5); 		// reserve 5 spaces, but don't construct any objects
 
     if (auto obj = pool.acquire())
         cout << "We acquired: " << *obj << "\n";
@@ -109,6 +108,35 @@ Output:
 We didn't acquire an object
 ```
 
+## Adding an object to the pool
+Say you ran out of objects to acquire, the pool supports adding new objects into the pool at any time.
+
+```c++
+#include <iostream>
+#include "object_pool.hpp"
+
+using namespace std;
+using namespace carlosb;
+
+int main()
+{
+    object_pool<int> pool;  // empty pool, there are no elements contained
+    pool.push(10); // push 10 into the pool, there is only one element now
+
+    if (auto obj = pool.acquire())
+        cout << "We acquired: " << *obj << "\n";
+    else
+        cout << "We didn't acquire an object. Let's add one!" << "\n";
+
+    return 0;
+}
+```
+
+Output:
+
+```
+We acquired: 10
+```
 
 # Thread Safety
 Through the use of mutexes, **all of the functions in** `object_pool` **are thread safe**. This, however, turns our attention to the **synchronized access of objects** in the pool. That is, what if a thread wants to `acquire()` an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:

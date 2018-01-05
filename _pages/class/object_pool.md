@@ -4,14 +4,14 @@ permalink: /class/object_pool/
 layout: default
 ---
 
-# carlosb::object_pool
-Defined in header [`object_pool.hpp`](/header/object_pool/)
+# `carlosb::object_pool`
+Defined in header [`object_pool.hpp`](/object_pool/header/object_pool)
 
 ```cpp
 template<
-        class T,
-        class Allocator     = std::allocator<T>,
-        class Mutex         = std::mutex
+    class T,
+    class Allocator     = std::allocator<T>,
+    class Mutex         = std::mutex
 > class object_pool;
 ```
 
