@@ -1,5 +1,22 @@
-title: Minimal theme
-description: Minimal is a theme for GitHub Pages.
+title: Object Pool Documentation
+email: carlosdotb@gmail.com
+description: >- # this means to ignore newlines until "baseurl:"
+  A shared container for reusing object instances.
+baseurl: "/object_pool" # the subpath of your site, e.g. /blog
+url: "https://carlosb.github.io/" # the base hostname & protocol for your site, e.g. http://example.com
+github_username:  carlosb
+
+markdown: kramdown
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+
 show_downloads: true
 google_analytics:
 theme: jekyll-theme-minimal
