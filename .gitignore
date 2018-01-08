@@ -36,3 +36,4 @@
 
 # Other
 *.dSYM
+.DS_Store
