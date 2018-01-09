@@ -208,7 +208,8 @@ namespace carlosb
         }
 
         /**
-         * @brief      Acquires an object from the pool.
+         * @brief      Waits until an object from the pool has been acquired or the `time_limit`
+         * has ran out.
          *
          * @return     Acquired object.
          * 
@@ -222,26 +223,9 @@ namespace carlosb
          * - emplacing a new object into the pool
          * - freeing other objects
          */
-        acquired_type lock_acquire(std::chrono::milliseconds time_limit = std::chrono::milliseconds::zero())
+        acquired_type acquire_wait(std::chrono::milliseconds time_limit = std::chrono::milliseconds::zero())
         {
-            return m_pool->lock_acquire(time_limit);
-        }
-
-
-        /**
-         * @brief      Acquires an object from the pool. 
-         * 
-         * @return     Acquired object.
-         * 
-         * @throws     std::out_of_range if no objects are in the pool.
-         * 
-         * Complexity
-         * ----------
-         * Constant.
-         */
-        acquired_type try_acquire()
-        {
-            return m_pool->try_acquire();
+            return m_pool->acquire_wait(time_limit);
         }
 
         /**
@@ -396,6 +380,17 @@ namespace carlosb
         {
             return m_pool->operator bool();
         }
+
+        /**
+         * @brief      Checks if the pool is still being used, i.e. not all
+         * elements have returned to the pool
+         *
+         * @return     `true` if the pool still has used elements, `false` otherwise
+         */
+        bool in_use() const
+        {
+            return m_pool->in_use();
+        }
     private:
         std::shared_ptr<impl>       m_pool;                ///< Pointer to implementation of pool.
     };
@@ -458,7 +453,7 @@ namespace carlosb
         {
             lock_guard other_lock(other.m_mutex);
             if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy construct an object_pool when is_used() == false.");
+                throw std::invalid_argument("You may only copy construct an object_pool when in_use() == false.");
 
             m_pool = m_allocator.allocate(m_capacity);
             for (size_type i = 0; i < m_size; ++i)
@@ -478,7 +473,7 @@ namespace carlosb
         {
             lock_guard other_lock(other.m_mutex);
             if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy construct an object_pool when is_used() == false.");
+                throw std::invalid_argument("You may only copy construct an object_pool when in_use() == false.");
 
             m_pool = m_allocator.allocate(m_capacity);
             for (size_type i = 0; i < m_size; ++i)
@@ -529,7 +524,7 @@ namespace carlosb
         {
             lock_guard other_lock(other.m_mutex);
             if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy assign an object_pool when is_used() == false.");
+                throw std::invalid_argument("You may only copy assign an object_pool when in_use() == false.");
             
             m_allocator.deallocate(m_pool);
             while (!m_free.empty())
@@ -552,9 +547,7 @@ namespace carlosb
         impl& operator=(impl&& other)
         {
             lock_guard other_lock(other.m_mutex);
-            if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only move assign an object_pool when is_used() == false.");
-            
+
             m_allocator.deallocate(m_pool);
             while (!m_free.empty())
                 m_free.pop();
@@ -600,17 +593,7 @@ namespace carlosb
             return std::move(obj);
         }
 
-        acquired_type try_acquire()
-        {   
-            lock_guard lock_pool(m_mutex);
-            if (m_free.empty())
-                throw std::out_of_range("No free objects in the pool.");
-            acquired_type obj(m_free.top(), impl::shared_from_this());
-            m_free.pop();
-            return std::move(obj);
-        }
-
-        acquired_type lock_acquire(std::chrono::milliseconds time_limit)
+        acquired_type acquire_wait(std::chrono::milliseconds time_limit)
         {   
             // Lock acquisition of resources
             std::unique_lock<mutex_type> acq_lock(m_acq_mutex);
@@ -801,7 +784,7 @@ namespace carlosb
             }
         }
 
-        _Tp*                          m_pool;                 ///< Pointer to first object in the pool.
+        _Tp*                        m_pool;                 ///< Pointer to first object in the pool.
         stack_type                  m_free;                 ///< Stack of free objects.
         allocator_type              m_allocator;            ///< Allocates space for the pool.
         size_type                   m_size;                 ///< Number of objects currently in the pool.
