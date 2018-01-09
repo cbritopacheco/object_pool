@@ -111,10 +111,12 @@ The first one, copy assigns each element of `other` to `*this` while invalidatin
 The second, move assings each element of `other` to `*this` while invalidating any other elements that were stored.
 
 ### Parameters
+
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
 |   other   | `const object_pool&`   |      n/a      |   input   |
 |   other   | `object_pool&&`   |      n/a      |   input   |
+
 
 ### Return Value
 A reference to `*this` with the new contents.
