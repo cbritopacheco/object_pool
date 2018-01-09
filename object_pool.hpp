@@ -602,7 +602,7 @@ namespace carlosb
             if (time_limit == std::chrono::milliseconds::zero())
             {
                 // Wait indefinitely
-                m_objects_availabe.wait(acq_lock, time_limit, [this] (void) { return !this->empty(); });
+                m_objects_availabe.wait(acq_lock, [this] (void) { return !this->empty(); });
             }
             else
             {
