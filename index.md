@@ -6,7 +6,7 @@ layout: home
 # Table of Contents
 1. [Overview](#overview)
 2. [Basic Example](#basic-example)
-3. [Thread Safety](#thread-safety)
+3. [Thread Safety and Synchronized Access](#thread-safety-and-synchronized-access)
 4. [License](#license)
 
 # Overview
@@ -138,12 +138,12 @@ Output:
 We acquired: 10
 ```
 
-# Thread Safety
+# Thread Safety and Synchronized Access
 Through the use of mutexes, **all of the functions in** `object_pool` **are thread safe**. This, however, turns our attention to the **synchronized access of objects** in the pool. That is, what if a thread wants to `acquire()` an object from an empty pool? Will it wait indefinitely? Or will the user have to synchronize manually the acquisitions of objects? To try to answer all these questions and provide flexibility, we chose to implement a method that appeals to most synchronization lingos:
 
 ```c++
 // Waits until there is a free object in the pool or the time limit is reached.
-acquired_type lock_acquire(std::chrono::milliseconds time_limit = std::chrono::nanoseconds::zero());
+acquired_type acquire_wait(std::chrono::milliseconds time_limit = std::chrono::nanoseconds::zero());
 ```
 
 which is different from
@@ -153,9 +153,9 @@ which is different from
 acquired_type acquire();
 ```
 
-The method `lock_acquire()` will wait until there is a free object in the pool. If `time_limit = std::chrono::nanoseconds::zero()` then it will wait indefinitely. In particular, this method must be used with great care since if the condition before is met, it might lead to deadlocks. You will still need to check whether you acquired an object or not, but at least you now have a simple interface to control these parameters.
+The method `acquire_wait()` will wait until there is a free object in the pool. If `time_limit = std::chrono::nanoseconds::zero()` then it will wait indefinitely. In particular, this method must be used with great care since if the condition before is met, it might lead to deadlocks. You will still need to check whether you acquired an object or not, but at least you now have a simple interface to control these parameters.
 
-To see a very basic use of  `lock_acquire()` in action, we present an example in the following section.
+To see a very basic use of  `acquire_wait()` in action, we present an example in the following section.
 
 ### Example
 
@@ -191,7 +191,7 @@ void worker1()
     }
 
     // acquire object
-    auto obj = pool.lock_acquire();
+    auto obj = pool.acquire_wait();
 
     {
         lock_guard<mutex> lock_cout(io_mutex);
@@ -235,7 +235,7 @@ void worker2()
         cout << "[Worker 2]: Acquiring objects...\n";
     }
 
-    auto obj = pool.lock_acquire();
+    auto obj = pool.acquire_wait();
 
     {
         lock_guard<mutex> lock_cout(io_mutex);

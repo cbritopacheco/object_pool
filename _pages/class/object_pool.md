@@ -17,7 +17,7 @@ template<
 
 `carlosb::object_pool` is a container which manages several shared instances of objects of type `T`.
 
-The object is returned to the pool using a custom deleter and the auxiliary type `object_pool<T>::acquired_object`. Through [RAII](http://en.cppreference.com/w/cpp/language/raii) we manage the pointer to the object and then return it to its lender.
+The object is returned to the pool using a custom deleter and the auxiliary type `acquired_object`. Through [RAII](http://en.cppreference.com/w/cpp/language/raii) we manage the pointer to the object and then return it to its lender.
 
 # Template Parameters
 
@@ -67,9 +67,6 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 
 ## Observers
 - [operator bool](#operator-bool)
-- [stored_count](#stored_count)
-- [in_use](#in_use)
-
 
 ## acquire
 
@@ -104,15 +101,15 @@ acquired_type acquire_wait(std::chrono::milliseconds time_limit = std::chrono::m
 ```
 Acquires an object from the pool.
 
-If no object is available, it waits until `time_limit` milliseconds have passed. If still no objects where available, it will return an empty object.
+If no object is available, it waits until `time_limit` milliseconds have passed. If still no objects are available, it returns an empty object.
 
-If `time_limit` is equal to `std::chrono::milliseconds::zero()` it will wait indefinitely for an object.
+If `time_limit` is equal to [`std::chrono::milliseconds::zero()`](http://en.cppreference.com/w/cpp/chrono/duration/zero) it will wait indefinitely for an object.
 
 ### Parameters
 
 | parameter    | type                             | default value | direction |
 |:------------:|----------------------------------|:-------------:|:---------:|
-|   `time_limit`   | [`std::chrono::milliseconds	`](http://en.cppreference.com/w/cpp/chrono/duration)   |      `std::chrono::milliseconds::zero()`      |   input   |
+|   `time_limit`   | [`std::chrono::milliseconds	`](http://en.cppreference.com/w/cpp/chrono/duration)   |      [`std::chrono::milliseconds::zero()`](http://en.cppreference.com/w/cpp/chrono/duration/zero)      |   input   |
 
 ### Return Value
 The acquired object.
@@ -153,7 +150,7 @@ Amortized Constant.
 
 ## emplace
 
-```c++
+```c++11
 template <class... Args>
 void emplace(Args&&... args)
 ```
@@ -196,7 +193,7 @@ If the current size is less than count,
 
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
-|   count   | size_type   |      n/a      |   input   |
+|   count   | [size_type](#member-types)   |      n/a      |   input   |
 |   value   | [value_type](#member-types) |      n/a      |   input   |
 
 
@@ -225,7 +222,7 @@ If `new_cap` is greater than the current [`capacity()`](#capacity), new storage 
 
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
-|   count   | size_type   |      n/a      |   input   |
+|   count   | [size_type](#member-types)   |      n/a      |   input   |
 |   value   | [value_type](#member-types) |      n/a      |   input   |
 
 
