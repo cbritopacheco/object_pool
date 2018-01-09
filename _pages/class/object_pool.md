@@ -212,8 +212,8 @@ If no more space is left, it will reallocate memory for the pool.
 
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
-|   value   | [const_reference](#member-types)   |      n/a      |   input   |
-|   value   | [rv_reference](#member-types)   |      n/a      |   input   |
+|   value   | [`const_reference`](#member-types)   |      n/a      |   input   |
+|   value   | [`rv_reference`](#member-types)   |      n/a      |   input   |
 
 
 ### Return Value
@@ -270,8 +270,8 @@ If the current size is less than count,
 
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
-|   count   | [size_type](#member-types)   |      n/a      |   input   |
-|   value   | [value_type](#member-types) |      n/a      |   input   |
+|   count   | [`size_type`](#member-types)   |      n/a      |   input   |
+|   value   | [`value_type`](#member-types) |      n/a      |   input   |
 
 
 ### Return Value
@@ -299,8 +299,8 @@ If `new_cap` is greater than the current [`capacity()`](#capacity), new storage 
 
 | parameter | type                           | default value | direction |
 |:---------:|--------------------------------|:-------------:|:---------:|
-|   count   | [size_type](#member-types)   |      n/a      |   input   |
-|   value   | [value_type](#member-types) |      n/a      |   input   |
+|   count   | [`size_type`](#member-types)   |      n/a      |   input   |
+|   value   | [`value_type`](#member-types) |      n/a      |   input   |
 
 
 ### Return Value
