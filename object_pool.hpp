@@ -856,6 +856,31 @@ namespace carlosb
 
         acquired_object(const acquired_object&) = delete;
 
+        acquired_object& operator=(acquired_object&& other)
+        {
+            // return object to pool first
+            deleter_type{m_pool}(m_obj);
+
+            // acquire ownership of the managed object
+            m_obj = other.m_obj;
+            other.m_obj = nullptr;
+
+            // manage pointer of lender
+            m_pool = std::move(other.m_pool);
+
+            // copy state
+            m_is_initialized = other.m_is_initialized;
+            other.m_is_initialized = false;
+
+            return *this;
+        }
+
+        ~acquired_object()
+        {
+            assert(m_is_initialized);
+            deleter_type{m_pool}(m_obj);
+        }
+
         _Tp& operator*() 
         {
             if (!m_is_initialized)
@@ -880,27 +905,6 @@ namespace carlosb
             return m_is_initialized;
         }
 
-        acquired_object& operator=(acquired_object&& other)
-        {
-            // acquire ownership of the managed object
-            m_obj = other.m_obj;
-            other.m_obj = nullptr;
-
-            // obtain pointer of other lender
-            m_pool = std::move(other.m_pool);
-
-            // copy state
-            m_is_initialized = other.m_is_initialized;
-            other.m_is_initialized = false;
-
-            return *this;
-        }
-
-        ~acquired_object()
-        {
-            if (m_is_initialized)
-                deleter_type{m_pool}(m_obj);
-        }
     private:
         _Tp*                        m_obj;
         std::shared_ptr<impl>       m_pool;
