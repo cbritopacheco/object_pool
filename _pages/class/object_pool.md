@@ -43,7 +43,7 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 
 # Member Functions
 
-- [(constructor)](#constructor)
+- [(constructor)](#object_pool)
 - [(destructor)](#destructor)
 - [(operator=)](#operator=)
 - [get_allocator()](#get_allocator)
@@ -60,13 +60,90 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 - [resize](#resize)
 - [reserve](#reserve)
 
-## Capacity
+## Size and Capacity
 - [size](#size)
 - [capacity](#capacity)
 - [empty](#empty)
 
 ## Observers
 - [operator bool](#operator-bool)
+- [in_use](#in_use)
+
+## object_pool
+
+```c++
+object_pool() : object_pool(Allocator());
+
+explicit object_pool(const Allocator& alloc);
+
+object_pool(size_type count, const T& value, const Allocator& alloc = Allocator());
+
+explicit object_pool(size_type count, const Allocator& alloc = Allocator());
+
+object_pool(const object_pool& other);
+
+explicit object_pool(const object_pool& other, const Allocator& alloc);
+
+object_pool(object_pool&& other, const Allocator& alloc);
+
+object_pool(object_pool&& other) noexcept;
+
+```
+
+## ~object_pool
+
+```c++
+~object_pool();
+```
+
+Destructs the container. The space is deallocated using the `deallocate()` method of the `Allocator` type.
+
+The destructor will only get called until the last remaining `acquired_object` goes out of scope or is destroyed.
+
+## operator=
+```c++
+object_pool& operator=(const object_pool& other);
+object_pool& operator=(object_pool&& other);
+```
+
+The first one, copy assigns each element of `other` to `*this` while invalidating any other elements that were stored and making space for the new elements. The `other` pool must not be in use. **This constructor will attempt to lock** `other` **so it can safely copy it.**
+
+The second, move assings each element of `other` to `*this` while invalidating any other elements that were stored.
+
+### Parameters
+| parameter | type                           | default value | direction |
+|:---------:|--------------------------------|:-------------:|:---------:|
+|   other   | `const object_pool&`   |      n/a      |   input   |
+|   other   | `object_pool&&`   |      n/a      |   input   |
+
+### Return Value
+The associated allocator.
+
+### Exceptions
+The first constructor throws [`std::invalid_argument`](http://en.cppreference.com/w/cpp/error/invalid_argument) if `other` has elements still in use, i.e. `in_use() == true`.
+
+### Complexity
+Linear in at most the `size()` of the container.
+
+## get_allocator
+
+```c++
+allocator_type get_allocator();
+```
+
+Returns the allocator associated with the container.
+
+### Parameters
+n/a
+
+### Return Value
+The associated allocator.
+
+### Exceptions
+No exceptions are thrown directly by this method.
+
+### Complexity
+Constant.
 
 ## acquire
 
@@ -150,9 +227,9 @@ Amortized Constant.
 
 ## emplace
 
-```c++11
+```c++
 template <class... Args>
-void emplace(Args&&... args)
+void emplace(Args&&... args);
 ```
 Adds a new object into the pool by constructing it.
 
@@ -260,7 +337,7 @@ Constant.
 ## capacity
 
 ```c++
-size_type empty() const;
+size_type capacity() const;
 ```
 
 Returns the number of elements that can be held in currently allocated storage.
@@ -322,3 +399,23 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+## in_use
+
+```c++
+bool in_use() const;
+```
+
+Checks if elements are still being used, i.e. not all objects have returned to the pool.
+
+### Parameters
+
+n/a
+
+### Return Value
+`true` if pool is being used, `false` otherwise
+
+### Exceptions
+No exceptions are thrown directly by this method.
+
+### Complexity
+Constant.

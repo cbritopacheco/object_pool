@@ -3,6 +3,8 @@ title: Home
 layout: home
 ---
 
+Click [here](/object_pool/class/object_pool) to go straight to the class' documentation.
+
 # Table of Contents
 1. [Overview](#overview)
 2. [Basic Example](#basic-example)
