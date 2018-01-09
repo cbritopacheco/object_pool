@@ -44,7 +44,7 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 # Member Functions
 
 - [(constructor)](#object_pool)
-- [(destructor)](#destructor)
+- [(destructor)](#~object_pool)
 - [(operator=)](#operator=)
 - [get_allocator()](#get_allocator)
 
@@ -117,7 +117,7 @@ The second, move assings each element of `other` to `*this` while invalidating a
 |   other   | `object_pool&&`   |      n/a      |   input   |
 
 ### Return Value
-The associated allocator.
+A reference to `*this` with the new contents.
 
 ### Exceptions
 The first constructor throws [`std::invalid_argument`](http://en.cppreference.com/w/cpp/error/invalid_argument) if `other` has elements still in use, i.e. `in_use() == true`.
