@@ -2,4 +2,7 @@
 #include "catch.hpp"
 #include "object_pool.hpp"
 
-template class carlosb::object_pool<int>;
+struct AggregateObject
+{};
+
+template class carlosb::object_pool<AggregateObject>;

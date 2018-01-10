@@ -147,7 +147,7 @@ FUNCTION(SETUP_TARGET_FOR_COVERAGE _targetname _testrunner _outputname)
 		# Capturing lcov counters and generating report
 		COMMAND ${LCOV_PATH} --directory . --capture --output-file ${coverage_info}
         COMMAND ${LCOV_PATH} --extract ${coverage_info} ${CMAKE_SOURCE_DIR}/src/object_pool.hpp --output-file ${coverage_cleaned}
-		COMMAND ${GENHTML_PATH} -o ${_outputname} ${coverage_cleaned}
+        COMMAND ${GENHTML_PATH} -o ${_outputname} ${coverage_cleaned}
 
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 		COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
@@ -160,37 +160,3 @@ FUNCTION(SETUP_TARGET_FOR_COVERAGE _targetname _testrunner _outputname)
 	)
 
 ENDFUNCTION() # SETUP_TARGET_FOR_COVERAGE
-
-# # Param _targetname     The name of new the custom make target
-# # Param _testrunner     The name of the target which runs the tests
-# # Param _outputname     cobertura output is generated as _outputname.xml
-# # Optional fourth parameter is passed as arguments to _testrunner
-# #   Pass them in list form, e.g.: "-j;2" for -j 2
-# FUNCTION(SETUP_TARGET_FOR_COVERAGE_COBERTURA _targetname _testrunner _outputname)
-
-# 	IF(NOT PYTHON_EXECUTABLE)
-# 		MESSAGE(FATAL_ERROR "Python not found! Aborting...")
-# 	ENDIF() # NOT PYTHON_EXECUTABLE
-
-# 	IF(NOT GCOVR_PATH)
-# 		MESSAGE(FATAL_ERROR "gcovr not found! Aborting...")
-# 	ENDIF() # NOT GCOVR_PATH
-
-# 	ADD_CUSTOM_TARGET(${_targetname}
-
-# 		# Run tests
-# 		${_testrunner} ${ARGV3}
-
-# 		# Running gcovr
-# 		COMMAND ${GCOVR_PATH} -x -r ${CMAKE_SOURCE_DIR} -e '${CMAKE_SOURCE_DIR}/tests/'  -o ${_outputname}.xml
-# 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-# 		COMMENT "Running gcovr to produce Cobertura code coverage report."
-# 	)
-
-# 	# Show info where to find the report
-# 	ADD_CUSTOM_COMMAND(TARGET ${_targetname} POST_BUILD
-# 		COMMAND ;
-# 		COMMENT "Cobertura code coverage report saved in ${_outputname}.xml."
-# 	)
-
-# ENDFUNCTION() # SETUP_TARGET_FOR_COVERAGE_COBERTURA
