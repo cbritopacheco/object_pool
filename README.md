@@ -1,4 +1,4 @@
-[![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE) [![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
+[![GitHub license](https://img.shields.io/badge/license-%20Boost%20Software%20License%201.0-blue.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE) [![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
 
 The full documentation can be found [here](https://carlosb.github.io/object_pool/index).
 
