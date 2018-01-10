@@ -48,11 +48,16 @@ if (NOT EXISTS "${PROJECT_SOURCE_DIR}/catch/catch.hpp")
     endif()
 endif()
 
+
+include(CodeCoverage)
+set(LCOV_REMOVE_EXTRA "'test/*'" "'catch/*'")
+setup_target_for_coverage (coverage unit_tests coverage)
+
 # ---- Build -----------------------------------
 message("${blue} Generating makefiles... ${reset}")
 
 include_directories("catch/")
-include_directories(".")
+include_directories("src/")
 
 # --- Gather all tests ---------------
 file(GLOB_RECURSE test_glob "test/*.cpp")
@@ -60,8 +65,4 @@ set(test_SRC ${test_glob})
 
 # ---- Add an executable -----------------------
 add_executable(unit_tests "${test_SRC}")
-
-include(CodeCoverage)
-message("${PROJECT_SOURCE_DIR}")
-set(LCOV_REMOVE_EXTRA "'test/*'" "'catch/*'")
-setup_target_for_coverage (coverage unit_tests coverage)
+target_link_libraries(unit_tests)
