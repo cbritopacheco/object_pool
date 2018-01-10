@@ -21,11 +21,11 @@
 #include <mutex>
 #include <condition_variable>
 #include <stack>
-#include <vector>
 #include <stdexcept>
 #include <type_traits>
 #include <cassert>
 #include <chrono>
+#include <cstring>
 
 
 namespace carlosb
@@ -115,10 +115,7 @@ namespace carlosb
          */
         class impl;
 
-        /**
-         * @brief      The `deleter` class returns lent objects to the pool.
-         */
-        class deleter;
+        
     public:
         class acquired_object;
 
@@ -128,7 +125,6 @@ namespace carlosb
         using const_reference   = const _Tp&;                 ///< const l-value reference.
 
         using acquired_type     = acquired_object;          ///< Type of acquired objects.
-        using deleter_type      = deleter;                  ///< Custom deleter of pool. It returns objects back to the pool.
         using stack_type        = std::stack<_Tp*>;           ///< Stack of pointers to the managed objects. Only contains unused objects.
 
         using size_type         = std::size_t;              ///< Size type used.
@@ -136,7 +132,9 @@ namespace carlosb
         using allocator_type    = _Allocator;                ///< Type of allocator.
         using mutex_type        = _Mutex;                    ///< Type of mutex.
         using lock_guard        = std::lock_guard<_Mutex>;   ///< Type of lock guard.
-
+        
+        class deleter; ///< The `deleter` class returns lent objects to the pool.
+        
         /**
          * @brief      Constructs an empty pool.
          */
@@ -276,7 +274,7 @@ namespace carlosb
          * 
          * @param[in]  count  Number of elements.
          * 
-         * If the current size is greater than count, the container is reduced to its first count elements.
+         * If the current size is greater than count, nothing happens.
          * If the current size is less than count, additional default-constructed elements are appended.
          *
          * Complexity
@@ -404,8 +402,6 @@ namespace carlosb
     class object_pool<_Tp, _Allocator, _Mutex>::impl : public std::enable_shared_from_this<impl>
     {
     public:
-        using deleter_type = deleter_type;
-
         explicit
         impl(const _Allocator& alloc)
             :   m_size(0),
@@ -685,13 +681,12 @@ namespace carlosb
 
                 for (size_type i = m_size; i < count; ++i)
                     ::new((void *) (m_pool + i)) _Tp();
-            }
-            else
-            {
+
                 for (size_type i = m_size; i < count; ++i)
-                    (m_pool + i)->~_Tp();
+                    m_free.push(m_pool + i);
+
+                m_size = count;
             }
-            m_size = count;
         }
 
         void resize(size_type count, const value_type& value)
@@ -704,13 +699,12 @@ namespace carlosb
 
                 for (size_type i = m_size; i < count; ++i)
                     ::new((void*) (m_pool + i)) _Tp(value);
-            }
-            else
-            {
+
                 for (size_type i = m_size; i < count; ++i)
-                    (m_pool + i)->~_Tp();
+                    m_free.push(m_pool + i);
+
+                m_size = count;
             }
-            m_size = count;
         }
 
         void return_object(_Tp* obj)
@@ -859,7 +853,7 @@ namespace carlosb
         acquired_object& operator=(acquired_object&& other)
         {
             // return object to pool first
-            deleter_type{m_pool}(m_obj);
+            object_pool::deleter{m_pool}(m_obj);
 
             // acquire ownership of the managed object
             m_obj = other.m_obj;
@@ -878,7 +872,7 @@ namespace carlosb
         ~acquired_object()
         {
             assert(m_is_initialized);
-            deleter_type{m_pool}(m_obj);
+            object_pool::deleter{m_pool}(m_obj);
         }
 
         _Tp& operator*() 
@@ -899,7 +893,6 @@ namespace carlosb
             return !(*this == none);
         }
 
-        explicit
         operator bool() const
         {
             return m_is_initialized;

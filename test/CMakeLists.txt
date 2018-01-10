@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.0)
 project(object_pool_tests LANGUAGES CXX)
 
 # ---- Configure compiler ----------------------
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD TRUE)
 
@@ -29,6 +29,7 @@ if (NOT EXISTS "${PROJECT_SOURCE_DIR}/catch/catch.hpp")
 endif()
 
 include_directories("catch/")
+include_directories("../")
 
 # --- Gather all tests ---------------
 file(GLOB_RECURSE test_glob "tests/*.cpp")
