@@ -63,5 +63,5 @@ add_executable(unit_tests "${test_SRC}")
 
 include(CodeCoverage)
 message("${PROJECT_SOURCE_DIR}")
-set(LCOV_REMOVE_EXTRA "'.'" "'catch/*'")
+set(LCOV_REMOVE_EXTRA "'test/*'" "'catch/*'")
 setup_target_for_coverage (coverage unit_tests coverage)
