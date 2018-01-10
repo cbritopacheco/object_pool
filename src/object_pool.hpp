@@ -522,7 +522,7 @@ namespace carlosb
             if (other.m_size - other.m_free.size() > 0)
                 throw std::invalid_argument("You may only copy assign an object_pool when in_use() == false.");
             
-            m_allocator.deallocate(m_pool);
+            m_allocator.deallocate(m_pool, m_capacity);
             while (!m_free.empty())
                 m_free.pop();
             
@@ -544,7 +544,7 @@ namespace carlosb
         {
             lock_guard other_lock(other.m_mutex);
 
-            m_allocator.deallocate(m_pool);
+            m_allocator.deallocate(m_pool, m_capacity);
             while (!m_free.empty())
                 m_free.pop();
             
