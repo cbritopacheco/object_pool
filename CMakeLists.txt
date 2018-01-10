@@ -19,11 +19,15 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 message("${blue} ----------------------------------------------------------- ${reset}")
 message("${blue} --- Copyright (C) Carlos Brito 2017 All rights reserved --- ${reset}")
 message("${blue} ----------- Boost Software License Version 1.0 ------------ ${reset}")
-message("${green} -------------- THIS SOFTWARE IS OPEN SOURCE --------------- ${reset}")
+message("${blue} --------------${green} THIS SOFTWARE IS OPEN SOURCE ${blue}--------------- ${reset}")
 message("${blue} ----------------------------------------------------------- ${reset}")
 
+include(CodeCoverage)
+set(LCOV_REMOVE_EXTRA "'catch/*'" "'tests/*'")
+setup_target_for_coverage (coverage unit_tests coverage)
+
 # ---- Configure compiler ----------------------
-set(CMAKE_CXX_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
+set(CMAKE_CXX_FLAGS "-g -O0 --coverage -fno-inline -fno-inline-small-functions -fno-default-inline -fprofile-arcs -ftest-coverage")
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -49,10 +53,6 @@ if (NOT EXISTS "${PROJECT_SOURCE_DIR}/catch/catch.hpp")
 endif()
 
 
-include(CodeCoverage)
-set(LCOV_REMOVE_EXTRA "'test/*'" "'catch/*'")
-setup_target_for_coverage (coverage unit_tests coverage)
-
 # ---- Build -----------------------------------
 message("${blue} Generating makefiles... ${reset}")
 
@@ -60,7 +60,7 @@ include_directories("catch/")
 include_directories("src/")
 
 # --- Gather all tests ---------------
-file(GLOB_RECURSE test_glob "test/*.cpp")
+file(GLOB_RECURSE test_glob "tests/*.cpp")
 set(test_SRC ${test_glob})
 
 # ---- Add an executable -----------------------

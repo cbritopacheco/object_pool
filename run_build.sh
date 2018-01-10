@@ -27,6 +27,6 @@ if [ $? -ne 0 ]; then
 fi
 
 showinfo "Running tests ..."
-make coverage
+make coverage -j4
 
 workingprocess "All tests compile and pass."
