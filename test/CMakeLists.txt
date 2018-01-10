@@ -13,7 +13,7 @@ message("${gray}Catch2 is needed to perform the tests.${reset}")
 
 if (NOT EXISTS "${PROJECT_SOURCE_DIR}/catch/catch.hpp")
     message("${gray}We will attempt to download the latest version from the internet.${reset}")
-    
+    file(MAKE_DIRECTORY "catch")
     file(DOWNLOAD
          "https://github.com/catchorg/Catch2/releases/download/v2.0.1/catch.hpp"
          "${PROJECT_SOURCE_DIR}/catch/catch.hpp"
