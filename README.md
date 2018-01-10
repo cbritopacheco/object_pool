@@ -1,4 +1,4 @@
-[![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-%20Boost%20Software%20License%201.0-blue.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE) [![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
 
 The full documentation can be found [here](https://carlosb.github.io/object_pool/index).
 
@@ -45,7 +45,8 @@ using namespace carlosb;
 
 int main()
 {
-    object_pool<int> pool(5, 10);  // pool of 5 integers with default value 10
+    object_pool<int> pool;  // empty pool
+    pool.push(10); // push 10 into pool
 
     if (auto obj = pool.acquire())
         cout << "We acquired: " << *obj << "\n";
@@ -64,4 +65,4 @@ We acquired: 10
 
 # License
 
-The software is licensed under the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
+The software is licensed under the [Boost Software License 1.0](https://github.com/carlosb/object_pool/blob/master/LICENSE).
