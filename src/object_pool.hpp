@@ -721,6 +721,7 @@ namespace carlosb
 
         void return_object(_Tp* obj)
         {
+            assert(obj);
             {
                 lock_guard lock_pool(m_mutex);
                 m_free.push(obj);
@@ -865,7 +866,8 @@ namespace carlosb
         acquired_object& operator=(acquired_object&& other)
         {
             // return object to pool first
-            object_pool::deleter{m_pool}(m_obj);
+            if (m_is_initialized)
+                object_pool::deleter{m_pool}(m_obj);
 
             // acquire ownership of the managed object
             m_obj = other.m_obj;
@@ -893,6 +895,11 @@ namespace carlosb
                 throw std::logic_error("acquired_object::operator*(): Initialization is required for data access.");
             else
                 return *m_obj;
+        }
+
+        _Tp* operator->() const noexcept
+        {
+            return m_obj;
         }
 
         bool operator==(const none_t) const
