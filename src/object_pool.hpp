@@ -793,9 +793,9 @@ namespace carlosb
 
         _Tp*                        m_pool;                 ///< Pointer to first object in the pool.
         stack_type                  m_free;                 ///< Stack of free objects.
+        size_type                   m_capacity;             ///< Number of objects the pool can hold.
         allocator_type              m_allocator;            ///< Allocates space for the pool.
         size_type                   m_size;                 ///< Number of objects currently in the pool.
-        size_type                   m_capacity;             ///< Number of objects the pool can hold.
         mutable mutex_type          m_mutex;                ///< Controls access to the modifiers. That is, you must lock this mutex when using any of the above.
 
         mutex_type                  m_acq_mutex;            ///< Controls acquisition of objects.
@@ -866,6 +866,7 @@ namespace carlosb
         }
 
         acquired_object(const acquired_object&) = delete;
+        acquired_object& operator=(const acquired_object&) = delete;
 
         acquired_object& operator=(acquired_object&& other)
         {
