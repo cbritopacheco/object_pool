@@ -817,9 +817,11 @@ namespace carlosb
 
         void operator()(_Tp* ptr)
         {
-            assert(ptr);
-            if (auto pool = m_pool_ptr.lock())
-                pool->return_object(ptr);
+            if (ptr)
+            {
+                if (auto pool = m_pool_ptr.lock())
+                    pool->return_object(ptr);
+            }
         }
     private:
         std::weak_ptr<impl> m_pool_ptr;
@@ -860,6 +862,7 @@ namespace carlosb
                 m_is_initialized(other.m_is_initialized)
         {
             other.m_obj = nullptr;
+            other.m_is_initialized = false;
         }
 
         acquired_object(const acquired_object&) = delete;
@@ -872,14 +875,13 @@ namespace carlosb
 
             // acquire ownership of the managed object
             m_obj = other.m_obj;
+            m_is_initialized = other.m_is_initialized;
+
             other.m_obj = nullptr;
+            other.m_is_initialized = false;
 
             // manage pointer of lender
             m_pool = std::move(other.m_pool);
-
-            // copy state
-            m_is_initialized = other.m_is_initialized;
-            other.m_is_initialized = false;
 
             return *this;
         }
@@ -898,7 +900,7 @@ namespace carlosb
                 return *m_obj;
         }
 
-        _Tp* operator->() const noexcept
+        _Tp* operator->() const
         {
             if (!m_is_initialized)
                 throw std::logic_error("acquired_object::operator->(): Initialization is required for data access.");
