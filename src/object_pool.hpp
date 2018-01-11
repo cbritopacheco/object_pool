@@ -817,6 +817,7 @@ namespace carlosb
 
         void operator()(_Tp* ptr)
         {
+            assert(ptr);
             if (auto pool = m_pool_ptr.lock())
                 pool->return_object(ptr);
         }
@@ -885,8 +886,8 @@ namespace carlosb
 
         ~acquired_object()
         {
-            assert(m_is_initialized);
-            object_pool::deleter{m_pool}(m_obj);
+            if (m_is_initialized)
+                object_pool::deleter{m_pool}(m_obj);
         }
 
         _Tp& operator*() 
@@ -899,7 +900,10 @@ namespace carlosb
 
         _Tp* operator->() const noexcept
         {
-            return m_obj;
+            if (!m_is_initialized)
+                throw std::logic_error("acquired_object::operator->(): Initialization is required for data access.");
+            else
+                return m_obj;
         }
 
         bool operator==(const none_t) const
