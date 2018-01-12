@@ -5,37 +5,19 @@
 
 using namespace std;
 
-SCENARIO( "objects can be pushed stringo the pool", "[object_pool]" )
+SCENARIO( "objects can be emplaced into the pool", "[object_pool]" )
 {
 
-    GIVEN( "An empty pool of strings" )
+    GIVEN( "An empty pool" )
     {
         carlosb::object_pool<string> pool;
         
         REQUIRE( pool.size() == 0 );
         REQUIRE( pool.capacity() >= 0 );
         
-        WHEN ( "an l-value is pushed" )
+        WHEN ( "an object is constructed in place" )
         {
-            string lv = "l-value";
-            pool.push(lv);
-            
-            THEN ( "the size changes" )
-            {
-                REQUIRE( pool.size() == 1 );
-                REQUIRE( pool.capacity() >= 1 );
-            }
-
-            THEN ( "the pool is not empty" )
-            {
-                REQUIRE ( pool.empty() == false );
-                REQUIRE ( static_cast<bool>(pool) );
-            }
-        }
-
-        WHEN ( "an r-value is pushed" )
-        {
-            pool.push(string("r-value"));
+            pool.emplace("a new object");
             
             THEN ( "the size changes" )
             {
@@ -65,27 +47,9 @@ SCENARIO( "objects can be pushed stringo the pool", "[object_pool]" )
         REQUIRE( pool.size() == 100 );
         REQUIRE( pool.capacity() >= 100 );
 
-        WHEN ( "an l-value is pushed" )
+        WHEN ( "a value is constructed in place" )
         {
-            DefaultConstructible lv("l-value");
-            pool.push(lv);
-            
-            THEN ( "the size changes" )
-            {
-                REQUIRE( pool.size() == 101 );
-                REQUIRE( pool.capacity() >= 101 );
-            }
-
-            THEN ( "the pool is not empty" )
-            {
-                REQUIRE ( pool.empty() == false );
-                REQUIRE ( static_cast<bool>(pool) );
-            }
-        }
-
-        WHEN ( "an r-value is pushed" )
-        {
-            pool.push(DefaultConstructible("r-value"));
+            pool.emplace("a new object");
             
             THEN ( "the size changes" )
             {
@@ -110,32 +74,14 @@ SCENARIO( "objects can be pushed stringo the pool", "[object_pool]" )
             string v;
         };
 
-        carlosb::object_pool<DefaultConstructible> pool(100, string("default initialized"));
+        carlosb::object_pool<DefaultConstructible> pool(100, string("default initialized strings"));
 
         REQUIRE( pool.size() == 100 );
         REQUIRE( pool.capacity() >= 100 );
 
-        WHEN ( "an l-value is pushed" )
+        WHEN ( "a value is constructed in place" )
         {
-            DefaultConstructible lv("l-value");
-            pool.push(lv);
-            
-            THEN ( "the size changes" )
-            {
-                REQUIRE( pool.size() == 101 );
-                REQUIRE( pool.capacity() >= 101 );
-            }
-
-            THEN ( "the pool is not empty" )
-            {
-                REQUIRE ( pool.empty() == false );
-                REQUIRE ( static_cast<bool>(pool) );
-            }
-        }
-
-        WHEN ( "an r-value is pushed" )
-        {
-            pool.push(DefaultConstructible("r-value"));
+            pool.emplace("constructed in place");
             
             THEN ( "the size changes" )
             {
@@ -165,17 +111,10 @@ SCENARIO( "objects can be pushed stringo the pool", "[object_pool]" )
         REQUIRE( pool.size() == 0 );
         REQUIRE( pool.capacity() >= 0 );
 
-        WHEN ( "When a bunch of objects are pushed (n=150)" )
+        WHEN ( "When a bunch of objects are emplaced (n=150)" )
         {
-
-            // add r-value
-            for (int i = 0; i < 75; ++i)
-                pool.push(DefaultConstructible("r-value"));
-
-            // add l-value
-            auto lv = DefaultConstructible("l-value");
-            for (int i = 0; i < 75; ++i)
-                pool.push(lv);
+            for (int i = 0; i < 150; ++i)
+                pool.emplace("hello");
             
             THEN ( "the size changes" )
             {
