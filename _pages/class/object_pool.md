@@ -44,7 +44,7 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 # Member Functions
 
 - [(constructor)](#object_pool)
-- [(destructor)](#~object_pool)
+- [(destructor)](#object_pool-1)
 - [(operator=)](#operator=)
 - [get_allocator()](#get_allocator)
 
@@ -74,19 +74,19 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 ```c++
 object_pool() : object_pool(Allocator());
 
-explicit object_pool(const Allocator& alloc);
+explicit
+object_pool(const Allocator& alloc);
 
 object_pool(size_type count, const T& value, const Allocator& alloc = Allocator());
 
 explicit object_pool(size_type count, const Allocator& alloc = Allocator());
 
-object_pool(const object_pool& other);
-
-explicit object_pool(const object_pool& other, const Allocator& alloc);
-
+explicit
 object_pool(object_pool&& other, const Allocator& alloc);
 
 object_pool(object_pool&& other) noexcept;
+
+object_pool(const object_pool&) = delete;
 
 ```
 
@@ -199,6 +199,15 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+### Example
+```c++
+// c++11
+auto obj = pool.acquire_wait(std::chrono::milliseconds(500));
+
+// c++14 and later
+auto obj = pool.acquire_wait(500ms);
+```
+
 ## push
 
 ```c++
@@ -227,10 +236,20 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Amortized Constant.
 
+### Example
+
+```c++
+object_pool<std::string> pool;
+
+std::string lv = "Hello World!";
+pool.push(lv); // l-value
+pool.push(std::string("Hello World!")); // r-value
+```
+
 ## emplace
 
 ```c++
-template <class... Args>
+template <class ... Args>
 void emplace(Args&&... args);
 ```
 Adds a new object into the pool by constructing it.
@@ -252,6 +271,22 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Amortized constant.
 
+### Example
+
+```c++
+class MyClass
+{
+public:
+	MyClass(int v, std::string str) : m_v(v), m_str(str) {} 
+private:
+	int m_v;
+	std::string m_str;
+};
+
+object_pool<MyClass> pool;
+pool.emplace(5, std::string("Hello World!"));
+```
+
 ## resize
 
 ```c++
@@ -259,7 +294,9 @@ void resize(size_type count);
 void resize(size_type count, const value_type& value);
 ```
 
-Resizes the container to contain count elements.
+Resizes the container to contain count elements. 
+
+**You must only call this when the pool is not in use.** An exception will be thrown otherwise.
 
 If the current size is greater than count, the container is reduced to its first count elements.
 
@@ -280,12 +317,24 @@ If the current size is less than count,
 n/a
 
 ### Exceptions
-No exceptions are thrown directly by this method.
+`std::runtime_error` if pool is `in_use()`.
 
 ### Complexity
 Linear in the difference between the current size and count. Additional complexity is possible due to reallocation if the capacity is less than count.
 
-## resize
+### Example
+```c++
+object_pool<int> pool = {1, 2, 3};
+cout << pool.size() << '\n';
+
+pool.resize(2);
+cout << pool.size() << '\n';
+
+pool.resize(1);
+cout << pool.size() << '\n';
+```
+
+## reserve
 
 ```c++
 void reserve(size_type new_cap);
@@ -293,9 +342,13 @@ void reserve(size_type new_cap);
 
 Reserves storage.
 
+**You must only call this when the pool is not in use.** An exception will be thrown otherwise.
+
 Increase the capacity of the vector to a value that's greater or equal to `new_cap`.
 
-If `new_cap` is greater than the current [`capacity()`](#capacity), new storage is otherwise the method does nothing.
+If `new_cap` is greater than the current [`capacity()`](#capacity), new storage will be allocated. Otherwise the method does nothing.
+
+If `new_cap` is greater than `capacity()`, all references to `acquired_objects` are invalidated. 
 
 ### Parameters
 
@@ -309,10 +362,17 @@ If `new_cap` is greater than the current [`capacity()`](#capacity), new storage 
 n/a
 
 ### Exceptions
-No exceptions are thrown directly by this method.
+`std::runtime_error` if pool is `in_use()`.
 
 ### Complexity
 At most linear in the [`size()`](#size) of the container.
+
+### Example
+
+```c++
+object_pool<int> pool; // empty pool
+pool.reserve(100); // now contains space for 100 integers
+```
 
 ## size
 
