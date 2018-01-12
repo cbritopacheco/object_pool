@@ -39,7 +39,6 @@
 #include <chrono>
 #include <cstring>
 
-
 namespace carlosb
 {
     /**
