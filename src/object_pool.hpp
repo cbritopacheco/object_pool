@@ -586,9 +586,12 @@ namespace carlosb
         void reserve(size_type new_cap)
         {
             lock_guard lock_pool(m_mutex);
-            m_allocator.deallocate(m_pool, m_capacity);
-            m_pool = m_allocator.allocate(new_cap);
-            m_capacity = new_cap;
+            if (new_cap > m_capacity)
+            {
+                m_allocator.deallocate(m_pool, m_capacity);
+                m_pool = m_allocator.allocate(new_cap);
+                m_capacity = new_cap;
+            }
         }
 
         acquired_type acquire()
