@@ -121,11 +121,8 @@ namespace carlosb
         static_assert(type_traits::is_lockable<_Mutex>::value,
                       "Mutex template parameter must satisfy the Lockable requirement.");
     private:
-        /**
-         * @brief      Contains the actual implementation of `object_pool`.
-         */
-        class impl;
-
+        class impl;     ///< Contains the actual implementation of `object_pool`.
+        class deleter;  ///< The `deleter` class returns lent objects to the pool.
         
     public:
         class acquired_object;
@@ -144,8 +141,6 @@ namespace carlosb
         using mutex_type        = _Mutex;                    ///< Type of mutex.
         using lock_guard        = std::lock_guard<_Mutex>;   ///< Type of lock guard.
         
-        class deleter; ///< The `deleter` class returns lent objects to the pool.
-        
         /**
          * @brief      Constructs an empty pool.
          */
@@ -160,7 +155,7 @@ namespace carlosb
          */
         explicit
         object_pool(const _Allocator& alloc)
-            :   m_pool(std::make_shared<impl>(alloc))
+            : m_pool(std::make_shared<impl>(alloc))
         {}
 
         /**
@@ -171,7 +166,7 @@ namespace carlosb
          * @param[in]  alloc  Allocator to be used.
          */
         object_pool(size_type count, const _Tp& value, const _Allocator& alloc = _Allocator())
-            :   m_pool(std::make_shared<impl>(count, value, alloc))
+            : m_pool(std::make_shared<impl>(count, value, alloc))
         {}
 
         /**
@@ -182,25 +177,55 @@ namespace carlosb
          */
         explicit
         object_pool(size_type count, const _Allocator& alloc = _Allocator())
-            :   m_pool(std::make_shared<impl>(count, alloc))
+            : m_pool(std::make_shared<impl>(count, alloc))
         {}
 
+        /**
+         * @brief      Shares ownership of the objects.
+         *
+         * @param[in]  other  Other pool.
+         */
         object_pool(const object_pool& other)
-            :   m_pool(std::make_shared<impl>(*other.m_pool))
-        {}
-        
-        explicit
-        object_pool(const object_pool& other, const _Allocator& alloc)
-            :   m_pool(std::make_shared<impl>(*other.m_pool, alloc))
+            : m_pool(other.m_pool)
         {}
 
-        object_pool(object_pool&& other, const _Allocator& alloc)
-            :    m_pool(std::make_shared<impl>(std::move(*other.m_pool), alloc))
-        {}
-
+        /**
+         * @brief      Transfers ownership of objects to `*this`.
+         *
+         * @param[in]  other  Other value.
+         */
         object_pool(object_pool&& other) noexcept
-            :    m_pool(std::make_shared<impl>(std::move(*other.m_pool)))
+            : m_pool(std::move(other.m_pool))
         {}
+
+        /**
+         * @brief      Shares ownership of objects.
+         *
+         * @param[in]  other  Other pool.
+         *
+         * @return     Returns a reference to a pool object which manages
+         * the same objects as `other`.
+         */
+        object_pool& operator=(const object_pool& other)
+        {
+            m_pool = other.m_pool;
+            return *this;
+        }
+
+        /**
+         * @brief      Transfers ownership of objects.
+         *
+         * @param[in]  other  Other pool.
+         *
+         * @return     Returns a reference to a pool object which manages
+         * the same objects as `other`. After the call, object will no longer
+         * manage any objects.
+         */
+        object_pool& operator=(object_pool&& other)
+        {
+            m_pool = std::move(other.m_pool);
+            return *this;
+        }
 
         /**
          * @brief      Acquires an object from the pool. 
@@ -400,6 +425,11 @@ namespace carlosb
         {
             return m_pool->in_use();
         }
+
+        void swap(object_pool& other)
+        {
+            m_pool->swap(other.m_pool);
+        }
     private:
         std::shared_ptr<impl>       m_pool;                ///< Pointer to implementation of pool.
     };
@@ -415,231 +445,122 @@ namespace carlosb
     public:
         explicit
         impl(const _Allocator& alloc)
-            :   m_size(0),
+            :   m_managed_count(0),
                 m_capacity(4),
                 m_allocator(alloc)
         {
-            m_pool = m_allocator.allocate(m_capacity);
+            for (size_type i = 0; i < m_capacity; ++i)
+                m_allocated_space.push(m_allocator.allocate(1));
         }
 
         impl(size_type count, const _Tp& value, const _Allocator& alloc = _Allocator())
-            :   m_size(count),
+            :   m_managed_count(count),
                 m_capacity(count),
                 m_allocator(alloc)
         {   
             static_assert(std::is_copy_constructible<_Tp>::value,
                           "T must be CopyConstructible to use this constructor.");
 
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                ::new((void *) (m_pool + i)) _Tp(value);
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
+            for (size_type i = 0; i < m_managed_count; ++i)
+            {
+                _Tp* obj = m_allocator.allocate(1);
+                ::new((void *) (obj)) _Tp(value);
+                m_free_objects.push(obj);
+            }
         }
 
         explicit
         impl(size_type count, const _Allocator& alloc = _Allocator())
-            :   m_size(count),
+            :   m_managed_count(count),
                 m_capacity(count),
                 m_allocator(alloc)
         {
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                ::new((void *) (m_pool + i)) _Tp();
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
-        }
-
-        explicit
-        impl(const impl& other)
-            :   m_size(other.m_size),
-                m_capacity(other.m_capacity),
-                m_allocator(other.m_allocator)
-        {
-            lock_guard other_lock(other.m_mutex);
-            if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy construct an object_pool when in_use() == false.");
-
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                ::new((void *) (m_pool + i)) _Tp(other.m_pool[i]);
-
-
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
-        }
-
-        explicit
-        impl(const impl& other, const _Allocator& alloc)
-            :   m_size(other.m_size),
-                m_capacity(other.m_capacity),
-                m_allocator(alloc)
-        {
-            lock_guard other_lock(other.m_mutex);
-            if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy construct an object_pool when in_use() == false.");
-
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                ::new((void *) (m_pool + i)) _Tp(other.m_pool[i]);
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
-        }
-
-        explicit
-        impl(impl&& other, const _Allocator& alloc)
-            :   m_size(other.m_size),
-                m_capacity(other.m_capacity),
-                m_allocator(alloc)
-        {
-            if (alloc == other.get_allocator())
+            for (size_type i = 0; i < m_managed_count; ++i)
             {
-                m_pool = other.m_pool;
-                m_free = std::move(other.m_free);
-                other.m_pool = nullptr;
-            }
-            else
-            {
-                m_pool = m_allocator.allocate(m_capacity);
-                for (size_type i = 0; i < m_size; ++i)
-                    ::new((void *) (m_pool + i)) _Tp(std::move(other.m_pool[i]));
-                for (size_type i = 0; i < m_size; ++i)
-                    m_free.push(m_pool + i);
-
-                while (!m_free.empty())
-                    other.m_free.pop();
-                other.m_pool = nullptr;
+                _Tp* obj = m_allocator.allocate(1);
+                ::new((void *) (obj)) _Tp();
+                m_free_objects.push(obj);
             }
         }
 
-        explicit
-        impl(impl&& other) noexcept
-            :   m_size(other.m_size),
-                m_capacity(other.m_capacity),
-                m_allocator(std::move(other.m_allocator)),
-                m_free(std::move(other.m_free)),
-                m_pool(other.m_pool)
+        ~impl() // called until last shared ptr to *this has gone out of scope
         {
-            other.m_pool = nullptr;
-        }
+            while (!m_free_objects.empty())
+            {
+                m_free_objects.top()->~_Tp();
+                m_allocated_space.push(m_free_objects.top());
+                m_free_objects.pop();
+            }
 
-        impl& operator=(const impl& other)
-        {
-            lock_guard other_lock(other.m_mutex);
-            if (other.m_size - other.m_free.size() > 0)
-                throw std::invalid_argument("You may only copy assign an object_pool when in_use() == false.");
-            
-            m_allocator.deallocate(m_pool, m_capacity);
-            while (!m_free.empty())
-                m_free.pop();
-            
-            m_size = other.m_size;
-            m_capacity = other.m_capacity;
-            m_allocator = other.m_allocator;
-
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                m_pool[i] = other.m_pool[i];
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
-
-            return *this;
-        }
-
-        impl& operator=(impl&& other)
-        {
-            lock_guard other_lock(other.m_mutex);
-
-            m_allocator.deallocate(m_pool, m_capacity);
-            while (!m_free.empty())
-                m_free.pop();
-            
-            m_size = other.m_size;
-            m_capacity = other.m_capacity;
-            m_allocator = other.m_allocator;
-
-            m_pool = m_allocator.allocate(m_capacity);
-            for (size_type i = 0; i < m_size; ++i)
-                m_pool[i] = std::move(other.m_pool[i]);
-
-            for (size_type i = 0; i < m_size; ++i)
-                m_free.push(m_pool + i);
-
-            return *this;
-        }
-
-        ~impl()
-        {
-            // The destructor is  called until the last
-            // shared_ptr to *this is destroyed
-
-            lock_guard lock_pool(m_mutex);
-            m_allocator.deallocate(m_pool, m_capacity);
+            while (!m_allocated_space.empty())
+            {
+                m_allocator.deallocate(m_allocated_space.top(), 1);
+                m_allocated_space.top() = nullptr;
+                m_allocated_space.pop();
+            }
         }
 
         void reserve(size_type new_cap)
         {
-            lock_guard lock_pool(m_mutex);
             if (new_cap > m_capacity)
             {
-                m_allocator.deallocate(m_pool, m_capacity);
-                m_pool = m_allocator.allocate(new_cap);
+                for (int i = m_capacity; i < new_cap; ++i)
+                    m_allocated_space.push(m_allocator.allocate(1));
                 m_capacity = new_cap;
-            }
+            }    
         }
 
         acquired_type acquire()
         {   
-            lock_guard lock_pool(m_mutex);
-            if (m_free.empty())
-                return acquired_object(none);;
-            acquired_object obj(m_free.top(), impl::shared_from_this());
-            m_free.pop();
+            lock_guard lock_this(m_pool_mutex);
+
+            if (m_free_objects.empty())
+                return acquired_object(none);
+            acquired_object obj(m_free_objects.top(), impl::shared_from_this());
+            m_free_objects.pop();
             return std::move(obj);
+        }
+
+        template <class... Args>
+        acquired_type allocate(Args&&... args)
+        {   
+            if (m_free_objects.empty())
+            {
+                _Tp* obj = m_allocator.allocate(1);
+                ::new((void *) (obj)) _Tp(std::forward<Args>(args)...);
+                ++m_managed_count;
+                return acquired_object(obj, impl::shared_from_this());
+            }
+            else
+            {
+                acquired_object obj(m_free_objects.top(), impl::shared_from_this());
+                m_free_objects.pop();
+                return std::move(obj);
+            }
         }
 
         acquired_type acquire_wait(std::chrono::milliseconds time_limit)
         {   
-            // Lock acquisition of resources
-            std::unique_lock<mutex_type> acq_lock(m_acq_mutex);
-            
-            // To wait, or not to wait? That is the question
+            std::unique_lock<mutex_type> acquisition_lock(m_acquisition_mutex);
+
             if (time_limit == std::chrono::milliseconds::zero())
             {
-                // Wait indefinitely
-                m_objects_availabe.wait(acq_lock, [this] (void) { return !this->empty(); });
+                m_objects_availabe.wait(acquisition_lock, [this] (void) { return !this->empty(); });
             }
             else
             {
-                // Wait until time limit is exceeded
-                if (!m_objects_availabe.wait_for(acq_lock, time_limit, [this] (void) { return !this->empty(); }))
+                if (m_objects_availabe.wait_for(acquisition_lock, time_limit, [this] (void) { return this->empty(); }))
                     return acquired_object(none);
             }
             
-            // Object to return
             acquired_object obj;
-            
-            // Critical section
             {
-                // Lock pool
-                lock_guard lock_pool(m_mutex);
-
-                // Acquire object
-                obj = acquired_object(m_free.top(), impl::shared_from_this());
-                
-                // Remove object from the stack
-                m_free.pop();
+                lock_guard lock_this(m_pool_mutex);
+                obj = acquired_object(m_free_objects.top(), impl::shared_from_this());
+                m_free_objects.pop();
             }
 
-            // Unlock acquisition of resources
-            acq_lock.unlock();
-
-            // Notifiy one thread we have unlocked
+            acquisition_lock.unlock();
             m_objects_availabe.notify_one();
             
             return std::move(obj);
@@ -647,87 +568,104 @@ namespace carlosb
 
         void push(const_reference value)
         {
-            {
-                lock_guard lock_pool(m_mutex);
-                if (m_size == m_capacity)
-                    this->reallocate(m_capacity * 2);
-                ::new((void *) (m_pool + m_size)) _Tp(value);
-                m_free.push(m_pool + m_size);
-                ++m_size;
-            }
+            if (m_managed_count == m_capacity)
+                this->reallocate(m_capacity * 2);
+            _Tp* obj = m_allocated_space.top();
+            m_allocated_space.pop();
+            ::new((void *) (obj)) _Tp(value);
+            m_free_objects.push(obj);
+            ++m_managed_count;
             m_objects_availabe.notify_one();
         }
 
         void push(rv_reference value)
         {
-            {
-                lock_guard lock_pool(m_mutex);
-                if (m_size == m_capacity)
-                    this->reallocate(m_capacity * 2);
-                ::new((void *) (m_pool + m_size)) _Tp(std::move(value));
-                m_free.push(m_pool + m_size);
-                ++m_size;
-            }
+            if (m_managed_count == m_capacity)
+                this->reallocate(m_capacity * 2);
+            _Tp* obj = m_allocated_space.top();
+            m_allocated_space.pop();
+            ::new((void *) (obj)) _Tp(std::move(value));
+            m_free_objects.push(obj);
+            ++m_managed_count;
             m_objects_availabe.notify_one();
         }
 
         template <class... Args>
         void emplace(Args&&... args)
         {
-            {
-                lock_guard lock_pool(m_mutex);
-                if (m_size == m_capacity)
-                    this->reallocate(m_capacity * 2);
-                ::new((void *) (m_pool + m_size)) _Tp(std::forward<Args>(args)...);
-                m_free.push(m_pool + m_size); 
-                ++m_size;
-            }
+            if (m_managed_count == m_capacity)
+                this->reallocate(m_capacity * 2);
+            _Tp* obj = m_allocated_space.top();
+            m_allocated_space.pop();
+            ::new((void *) (obj)) _Tp(std::forward<Args>(args)...);
+            m_free_objects.push(obj); 
+            ++m_managed_count;
             m_objects_availabe.notify_one();
         }
 
         void resize(size_type count)
         {
-            lock_guard lock_pool(m_mutex);
-            if (count > m_size)
+            size_type size = m_free_objects.size();
+            if (count > size)
             {
                 if (count > m_capacity)
                     this->reallocate(count);
 
-                for (size_type i = m_size; i < count; ++i)
-                    ::new((void *) (m_pool + i)) _Tp();
+                for (size_type i = size; i < count; ++i)
+                {
+                    _Tp* obj = m_allocated_space.top();
+                    m_allocated_space.pop();
 
-                for (size_type i = m_size; i < count; ++i)
-                    m_free.push(m_pool + i);
-
-                m_size = count;
+                    ::new((void *) (obj)) _Tp();
+                    m_free_objects.push(obj);
+                }
             }
+            else
+            {
+                for (size_type i = size; i < count; ++i)
+                {
+                    m_free_objects.top()->~_Tp();
+                    m_allocated_space.push(m_free_objects.top());
+                    m_free_objects.pop();
+                }
+            }
+            m_managed_count = count;
         }
 
         void resize(size_type count, const value_type& value)
         {
-            lock_guard lock_pool(m_mutex);
-            if (count > m_size)
+            size_type size = m_free_objects.size();
+            if (count > size)
             {
                 if (count > m_capacity)
                     this->reallocate(count);
 
-                for (size_type i = m_size; i < count; ++i)
-                    ::new((void*) (m_pool + i)) _Tp(value);
+                for (size_type i = size; i < count; ++i)
+                {
+                    _Tp* obj = m_allocated_space.top();
+                    m_allocated_space.pop();
 
-                for (size_type i = m_size; i < count; ++i)
-                    m_free.push(m_pool + i);
-
-                m_size = count;
+                    ::new((void *) (obj)) _Tp(value);
+                    m_free_objects.push(obj);
+                }
             }
+            else
+            {
+                for (size_type i = size; i < count; ++i)
+                {
+                    m_free_objects.top()->~_Tp();
+                    m_allocated_space.push(m_free_objects.top());
+                    m_free_objects.pop();
+                }
+            }
+            m_managed_count = count;
         }
 
         void return_object(_Tp* obj)
         {
             assert(obj);
-            {
-                lock_guard lock_pool(m_mutex);
-                m_free.push(obj);
-            }
+            lock_guard lock_this(m_pool_mutex);
+            m_free_objects.push(obj);
             m_objects_availabe.notify_one();
         }
 
@@ -738,30 +676,28 @@ namespace carlosb
 
         size_type size() const
         {
-            lock_guard lock_pool(m_mutex);
-            return m_free.size();
+            return m_free_objects.size();
         }
 
         size_type managed_count() const
         {
-            lock_guard lock_pool(m_mutex);
-            return m_size;
+            return m_managed_count;
         }
 
         size_type capacity() const
         {
-            lock_guard lock_pool(m_mutex);
             return m_capacity;
         }
 
         bool in_use() const
         {
-            return (managed_count() - size()) > 0;
+            return (m_managed_count - m_free_objects.size()) > 0;
         }
 
         bool empty() const
         {
-            return size() == 0;
+            lock_guard lock_this(m_pool_mutex);
+            return m_free_objects.size() == 0;
         }
 
         operator bool()
@@ -771,36 +707,33 @@ namespace carlosb
 
         void swap(impl& other)
         {
+            lock_guard lock_this(m_pool_mutex);
+            lock_guard lock_other(other.m_pool_mutex);
+
             using std::swap;
-
-            lock_guard this_lock(m_mutex);
-            lock_guard other_lock(other.m_mutex);
-
-            swap(m_pool, other.m_pool);
-            swap(m_free, other.m_free);
+            swap(m_managed_count, other.m_managed_count);
+            swap(m_capacity, other.m_capacity);
+            swap(m_free_objects, other.m_free_objects);
             swap(m_allocator, other.m_allocator);
         }
 
     private:
-        inline void reallocate(size_type count)
+        inline void reallocate(size_type new_cap)
         {
-            _Tp* new_pool = m_allocator.allocate(count);
-            {
-                std::memcpy(new_pool, m_pool, m_size * sizeof(_Tp));
-                m_allocator.deallocate(m_pool, m_capacity);
-                m_pool = new_pool;
-                m_capacity = count;
-            }
+            for (size_type i = m_capacity; i < new_cap; ++i)
+                m_allocated_space.push(m_allocator.allocate(1));
+            m_capacity = new_cap;
         }
 
-        _Tp*                        m_pool;                 ///< Pointer to first object in the pool.
-        stack_type                  m_free;                 ///< Stack of free objects.
-        size_type                   m_size;                 ///< Number of objects currently in the pool.
+        size_type                   m_managed_count;        ///< Number of objects currently in the pool.
         size_type                   m_capacity;             ///< Number of objects the pool can hold.
         allocator_type              m_allocator;            ///< Allocates space for the pool.
-        mutable mutex_type          m_mutex;                ///< Controls access to the modifiers. That is, you must lock this mutex when using any of the above.
 
-        mutex_type                  m_acq_mutex;            ///< Controls acquisition of objects.
+        stack_type                  m_allocated_space;      ///< Pointer to first object in the pool.
+        stack_type                  m_free_objects;         ///< Stack of free objects.
+
+        mutable mutex_type          m_pool_mutex;           ///< Controls access to the pool.
+        mutex_type                  m_acquisition_mutex;    ///< Controls acquisition of objects.
         std::condition_variable     m_objects_availabe;     ///< Indicates presence of free objects.
     };
 
@@ -903,7 +836,7 @@ namespace carlosb
                 return *m_obj;
         }
 
-        _Tp* operator->() const
+        _Tp* operator->()
         {
             if (!m_is_initialized)
                 throw std::logic_error("acquired_object::operator->(): Initialization is required for data access.");
