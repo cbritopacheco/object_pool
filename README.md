@@ -1,3 +1,5 @@
+This project is still under development.
+
 The full documentation can be found [here](https://carlosb.github.io/object_pool/index).
 
 # object_pool
