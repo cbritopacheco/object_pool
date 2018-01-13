@@ -13,6 +13,9 @@ Click [here](/object_pool/class/object_pool) to go straight to the class' docume
 
 # Overview
 
+[![Build Status](https://travis-ci.org/carlosb/object_pool.svg?branch=master)](https://travis-ci.org/carlosb/object_pool)
+[![Coverage Status](https://coveralls.io/repos/github/carlosb/object_pool/badge.svg?branch=master)](https://coveralls.io/github/carlosb/object_pool?branch=master)
+[![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
 [![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
 
 An [`object_pool`](/object_pool/class/object_pool) is a container which provides shared access to a collection of object instances of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
@@ -38,6 +41,10 @@ int main()
 		doSomething(*obj);
 	else
 		doSomethingElse();
+	
+	// magic happens! obj gets returned to the pool
+	// where it then gets destroyed and
+	// its memory deallocated
 	
 	return 0;
 }
