@@ -36,7 +36,7 @@ void worker1()
     }
 
     // acquire object
-    auto obj = pool.lock_acquire();
+    auto obj = pool.acquire_wait();
 
     {
         lock_guard<mutex> lock_cout(io_mutex);
@@ -80,7 +80,7 @@ void worker2()
         cout << "[Worker 2]: Acquiring objects...\n";
     }
 
-    auto obj = pool.lock_acquire();
+    auto obj = pool.acquire_wait();
 
     {
         lock_guard<mutex> lock_cout(io_mutex);
