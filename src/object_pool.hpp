@@ -39,6 +39,8 @@
 #include <chrono>
 #include <cstring>
 
+#include <iostream>
+
 namespace carlosb
 {
     /**
@@ -139,7 +141,7 @@ namespace carlosb
 
         using allocator_type    = _Allocator;                ///< Type of allocator.
         using mutex_type        = _Mutex;                    ///< Type of mutex.
-        using lock_guard        = std::lock_guard<_Mutex>;   ///< Type of lock guard.
+        using scoped_lock_type  = std::lock_guard<_Mutex>;   ///< Type of lock guard.
         
         /**
          * @brief      Constructs an empty pool.
@@ -260,6 +262,23 @@ namespace carlosb
         acquired_type acquire_wait(std::chrono::milliseconds time_limit = std::chrono::milliseconds::zero())
         {
             return m_pool->acquire_wait(time_limit);
+        }
+
+        /**
+         * @brief      Attempts to acquire an object. If no object is acquired
+         * then it will construct an object from the parameters passed and
+         * return it. This method will always return an object that is initialized.
+         *
+         * @param[in]  args  Parameter pack
+         *
+         * @tparam     Args       Types of the parameter
+         *
+         * @return     Acquired object.
+         */
+        template <class... Args>
+        acquired_type allocate(Args&&... args)
+        {
+            return m_pool->allocate(std::forward<Args>(args)...);
         }
 
         /**
@@ -428,7 +447,7 @@ namespace carlosb
 
         void swap(object_pool& other)
         {
-            m_pool->swap(other.m_pool);
+            m_pool->swap(*other.m_pool);
         }
     private:
         std::shared_ptr<impl>       m_pool;                ///< Pointer to implementation of pool.
@@ -502,6 +521,8 @@ namespace carlosb
 
         void reserve(size_type new_cap)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             if (new_cap > m_capacity)
             {
                 for (int i = m_capacity; i < new_cap; ++i)
@@ -512,7 +533,7 @@ namespace carlosb
 
         acquired_type acquire()
         {   
-            lock_guard lock_this(m_pool_mutex);
+            scoped_lock_type pool_lock(m_pool_mutex);
 
             if (m_free_objects.empty())
                 return acquired_object(none);
@@ -521,9 +542,42 @@ namespace carlosb
             return std::move(obj);
         }
 
+        acquired_type acquire_wait(std::chrono::milliseconds time_limit)
+        {   
+            std::unique_lock<mutex_type> pool_lock(m_pool_mutex);
+
+            acquired_object obj;
+            if (time_limit == std::chrono::milliseconds::zero())
+            {
+                m_objects_availabe.wait(pool_lock, [this] (void) { return !m_free_objects.empty(); });
+                
+                obj = acquired_object(m_free_objects.top(), impl::shared_from_this());
+                m_free_objects.pop();
+            }
+            else
+            {
+                if (m_objects_availabe.wait_for(pool_lock, time_limit, [this] (void) { return m_free_objects.empty(); }))
+                {
+                    obj = none;
+                }
+                else
+                {
+                    obj = acquired_object(m_free_objects.top(), impl::shared_from_this());
+                    m_free_objects.pop();
+                }
+            }
+
+            pool_lock.unlock();
+            m_objects_availabe.notify_one();
+
+            return std::move(obj);
+        }
+
         template <class... Args>
         acquired_type allocate(Args&&... args)
         {   
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             if (m_free_objects.empty())
             {
                 _Tp* obj = m_allocator.allocate(1);
@@ -539,35 +593,11 @@ namespace carlosb
             }
         }
 
-        acquired_type acquire_wait(std::chrono::milliseconds time_limit)
-        {   
-            std::unique_lock<mutex_type> acquisition_lock(m_acquisition_mutex);
-
-            if (time_limit == std::chrono::milliseconds::zero())
-            {
-                m_objects_availabe.wait(acquisition_lock, [this] (void) { return !this->empty(); });
-            }
-            else
-            {
-                if (m_objects_availabe.wait_for(acquisition_lock, time_limit, [this] (void) { return this->empty(); }))
-                    return acquired_object(none);
-            }
-            
-            acquired_object obj;
-            {
-                lock_guard lock_this(m_pool_mutex);
-                obj = acquired_object(m_free_objects.top(), impl::shared_from_this());
-                m_free_objects.pop();
-            }
-
-            acquisition_lock.unlock();
-            m_objects_availabe.notify_one();
-            
-            return std::move(obj);
-        }
 
         void push(const_reference value)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             if (m_managed_count == m_capacity)
                 this->reallocate(m_capacity * 2);
             _Tp* obj = m_allocated_space.top();
@@ -580,6 +610,8 @@ namespace carlosb
 
         void push(rv_reference value)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             if (m_managed_count == m_capacity)
                 this->reallocate(m_capacity * 2);
             _Tp* obj = m_allocated_space.top();
@@ -593,6 +625,8 @@ namespace carlosb
         template <class... Args>
         void emplace(Args&&... args)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             if (m_managed_count == m_capacity)
                 this->reallocate(m_capacity * 2);
             _Tp* obj = m_allocated_space.top();
@@ -605,6 +639,8 @@ namespace carlosb
 
         void resize(size_type count)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             size_type size = m_free_objects.size();
             if (count > size)
             {
@@ -634,6 +670,8 @@ namespace carlosb
 
         void resize(size_type count, const value_type& value)
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
+
             size_type size = m_free_objects.size();
             if (count > size)
             {
@@ -664,40 +702,45 @@ namespace carlosb
         void return_object(_Tp* obj)
         {
             assert(obj);
-            lock_guard lock_this(m_pool_mutex);
+            scoped_lock_type pool_lock(m_pool_mutex);
             m_free_objects.push(obj);
             m_objects_availabe.notify_one();
         }
 
         allocator_type get_allocator()
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
             return m_allocator;
         }
 
         size_type size() const
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
             return m_free_objects.size();
         }
 
         size_type managed_count() const
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
             return m_managed_count;
         }
 
         size_type capacity() const
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
             return m_capacity;
         }
 
         bool in_use() const
         {
+            scoped_lock_type pool_lock(m_pool_mutex);
             return (m_managed_count - m_free_objects.size()) > 0;
         }
 
         bool empty() const
         {
-            lock_guard lock_this(m_pool_mutex);
-            return m_free_objects.size() == 0;
+            scoped_lock_type pool_lock(m_pool_mutex);
+            return m_free_objects.empty();
         }
 
         operator bool()
@@ -707,8 +750,8 @@ namespace carlosb
 
         void swap(impl& other)
         {
-            lock_guard lock_this(m_pool_mutex);
-            lock_guard lock_other(other.m_pool_mutex);
+            scoped_lock_type lock_this(m_pool_mutex);
+            scoped_lock_type lock_other(other.m_pool_mutex);
 
             using std::swap;
             swap(m_managed_count, other.m_managed_count);
@@ -733,7 +776,6 @@ namespace carlosb
         stack_type                  m_free_objects;         ///< Stack of free objects.
 
         mutable mutex_type          m_pool_mutex;           ///< Controls access to the pool.
-        mutex_type                  m_acquisition_mutex;    ///< Controls acquisition of objects.
         std::condition_variable     m_objects_availabe;     ///< Indicates presence of free objects.
     };
 
@@ -805,19 +847,28 @@ namespace carlosb
 
         acquired_object& operator=(acquired_object&& other)
         {
-            // return object to pool first
             if (m_is_initialized)
                 object_pool::deleter{m_pool}(m_obj);
 
-            // acquire ownership of the managed object
             m_obj = other.m_obj;
             m_is_initialized = other.m_is_initialized;
 
             other.m_obj = nullptr;
             other.m_is_initialized = false;
 
-            // manage pointer of lender
             m_pool = std::move(other.m_pool);
+
+            return *this;
+        }
+
+        acquired_object& operator=(none_t)
+        {
+            if (m_is_initialized)
+                object_pool::deleter{m_pool}(m_obj);
+
+            m_obj = nullptr;
+            m_pool = nullptr;
+            m_is_initialized = false;
 
             return *this;
         }
