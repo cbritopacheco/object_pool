@@ -542,7 +542,7 @@ Constant.
 ## operator bool
 
 ```c++
-operator bool();
+operator bool() const;
 ```
 
 Checks if there are free elements in the pool.
