@@ -52,6 +52,7 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 
 - [acquire](#acquire)
 - [acquire_wait](#acquire_wait)
+- [allocate](#allocate)
 
 ## Modifiers
 
@@ -71,24 +72,75 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 
 ## object_pool
 
+---
+
 ```c++
 object_pool() : object_pool(Allocator());
+```
 
+Constructs an empty pool with a default-constructed allocator.
+
+#### Complexity
+
+Constant.
+
+---
+
+```c++
 explicit
 object_pool(const Allocator& alloc);
+```
 
+Constructs an empty pool with the passed allocator.
+
+#### Complexity
+
+Constant.
+
+
+---
+
+```c++
 object_pool(size_type count, const T& value, const Allocator& alloc = Allocator());
+```
 
+Constructs a pool with `count` copy-constructed objects of `value` and the passed allocator.
+
+#### Complexity
+
+Linear in `count`.
+
+---
+
+```c++
 explicit object_pool(size_type count, const Allocator& alloc = Allocator());
+```
 
-explicit
-object_pool(object_pool&& other, const Allocator& alloc);
+Constructs a pool with `count` objects that are default-constructed and the passed allocator.
 
+#### Complexity
+
+Linear in `count`.
+
+---
+
+```c++
 object_pool(object_pool&& other) noexcept;
+```
 
-object_pool(const object_pool&) = delete;
+Move-constructs a pool with the managed objects of `other`. After the call, `other` will manage no objects.
+
+#### Complexity
+
+Constant.
+
+---
 
 ```
+object_pool(const object_pool& other);
+```
+
+Shares ownership with the objects of `other`.
 
 ## ~object_pool
 
@@ -106,9 +158,11 @@ object_pool& operator=(const object_pool& other);
 object_pool& operator=(object_pool&& other);
 ```
 
-The first one, copy assigns each element of `other` to `*this` while invalidating any other elements that were stored and making space for the new elements. The `other` pool must not be in use. **This constructor will attempt to lock** `other` **so it can safely copy it.**
+The first shares the objects managed by the `other` memory pool with `*this`.
 
-The second, move assings each element of `other` to `*this` while invalidating any other elements that were stored.
+The second transfers ownership of the objects managed by `other` to `*this`. After the call, `other` will manage no objects.
+
+All previous objects of `*this` get deallocated and destroyed until the last remaining `acquired_object` lent by `*this` goes out of scope or gets destroyed.
 
 ### Parameters
 
@@ -119,13 +173,13 @@ The second, move assings each element of `other` to `*this` while invalidating a
 
 
 ### Return Value
-A reference to `*this` with the new contents.
+A reference to `*this` with the new managed objects.
 
 ### Exceptions
-The first constructor throws [`std::invalid_argument`](http://en.cppreference.com/w/cpp/error/invalid_argument) if `other` has elements still in use, i.e. `in_use() == true`.
+n/a
 
 ### Complexity
-Linear in at most the `size()` of the container.
+Constant.
 
 ## get_allocator
 
@@ -207,6 +261,52 @@ auto obj = pool.acquire_wait(std::chrono::milliseconds(500));
 // c++14 and later
 auto obj = pool.acquire_wait(500ms);
 ```
+
+## allocate
+
+```c++
+template <class... Args>
+acquired_type allocate(Args&&... args);
+```
+Acquires an object from the pool.
+
+If no object is available, it will allocate memory for a new object and construct it based on the `args` passed.
+
+### Parameters
+
+| parameter    | type                             | default value | direction |
+|:------------:|----------------------------------|:-------------:|:---------:|
+|   `args`     |  Parameter pack                  | n/a           |   input   |
+
+### Return Value
+An acquired object.
+
+### Exceptions
+No exceptions are thrown directly by this method.
+
+### Complexity
+Amortized Constant.
+
+### Example
+```c++
+object_pool<int> pool; // empty pool
+
+cout << pool.size() << endl;
+
+{
+	auto obj = pool.allocate();
+}
+
+cout << pool.size() << endl;
+```
+
+Expected output:
+
+```
+0
+1
+```
+
 
 ## push
 
@@ -296,8 +396,6 @@ void resize(size_type count, const value_type& value);
 
 Resizes the container to contain count elements. 
 
-**You must only call this when the pool is not in use.** An exception will be thrown otherwise.
-
 If the current size is greater than count, the container is reduced to its first count elements.
 
 If the current size is less than count,
@@ -317,7 +415,7 @@ If the current size is less than count,
 n/a
 
 ### Exceptions
-`std::runtime_error` if pool is `in_use()`.
+n/a
 
 ### Complexity
 Linear in the difference between the current size and count. Additional complexity is possible due to reallocation if the capacity is less than count.
@@ -342,13 +440,11 @@ void reserve(size_type new_cap);
 
 Reserves storage.
 
-**You must only call this when the pool is not in use.** An exception will be thrown otherwise.
-
 Increase the capacity of the vector to a value that's greater or equal to `new_cap`.
 
 If `new_cap` is greater than the current [`capacity()`](#capacity), new storage will be allocated. Otherwise the method does nothing.
 
-If `new_cap` is greater than `capacity()`, all references to `acquired_objects` are invalidated. 
+No acquired objects are invalidated.
 
 ### Parameters
 
@@ -359,12 +455,15 @@ If `new_cap` is greater than `capacity()`, all references to `acquired_objects` 
 
 
 ### Return Value
+
 n/a
 
 ### Exceptions
-`std::runtime_error` if pool is `in_use()`.
+
+n/a
 
 ### Complexity
+
 At most linear in the [`size()`](#size) of the container.
 
 ### Example
