@@ -70,14 +70,14 @@ SCENARIO( "object_pool can be resized incrementally", "[object_pool]" )
             }
         }
 
-        WHEN ( "the pool is resized with count < size() nothing happens" )
+        WHEN ( "the pool is resized with count < size()" )
         {
             pool.resize(1);
 
             THEN ( "the size changes" )
             {
-                REQUIRE( pool.size() == 100 );
-                REQUIRE( pool.capacity() >= 100 );
+                REQUIRE( pool.size() == 1 );
+                REQUIRE( pool.capacity() >= 1 );
             }
 
             THEN ( "the pool is not empty" )
@@ -87,14 +87,14 @@ SCENARIO( "object_pool can be resized incrementally", "[object_pool]" )
             }
         }
 
-        WHEN ( "the pool is resized with count < size() and a default value nothing happens" )
+        WHEN ( "the pool is resized with count < size() and a default value" )
         {
-            pool.resize(100, 42);
+            pool.resize(50, 42);
             
             THEN ( "the size changes" )
             {
-                REQUIRE( pool.size() == 100 );
-                REQUIRE( pool.capacity() >= 100 );
+                REQUIRE( pool.size() == 50 );
+                REQUIRE( pool.capacity() >= 50 );
             }
 
             THEN ( "the pool is not empty" )

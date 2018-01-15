@@ -658,7 +658,7 @@ namespace carlosb
             }
             else
             {
-                for (size_type i = size; i < count; ++i)
+                for (size_type i = count; i < size; ++i)
                 {
                     m_free_objects.top()->~_Tp();
                     m_allocated_space.push(m_free_objects.top());
@@ -689,7 +689,7 @@ namespace carlosb
             }
             else
             {
-                for (size_type i = size; i < count; ++i)
+                for (size_type i = count; i < size; ++i)
                 {
                     m_free_objects.top()->~_Tp();
                     m_allocated_space.push(m_free_objects.top());
