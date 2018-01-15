@@ -4,6 +4,7 @@ The full documentation can be found [here](https://carlosb.github.io/object_pool
 
 # object_pool
 
+[![Header-only](https://img.shields.io/badge/header--only-master-ff69b4.svg)](src)
 [![Build Status](https://travis-ci.org/carlosb/object_pool.svg?branch=master)](https://travis-ci.org/carlosb/object_pool)
 [![Coverage Status](https://coveralls.io/repos/github/carlosb/object_pool/badge.svg?branch=master)](https://coveralls.io/github/carlosb/object_pool?branch=master)
 [![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
