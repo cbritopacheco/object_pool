@@ -429,7 +429,7 @@ namespace carlosb
          * ----------
          * Constant.
          */
-        operator bool()
+        operator bool() const
         {
             return m_pool->operator bool();
         }
@@ -743,7 +743,7 @@ namespace carlosb
             return m_free_objects.empty();
         }
 
-        operator bool()
+        operator bool() const
         {
             return size() > 0;
         }
