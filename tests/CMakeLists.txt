@@ -8,7 +8,7 @@ set(LCOV_REMOVE_EXTRA "'catch/*'" "'examples/*'" "'cmake/*'" "'build/*'" "'tests
 setup_target_for_coverage (coverage unit_tests coverage)
 
 # ---- Configure compiler ----------------------
-set(CMAKE_CXX_FLAGS "-g -O0 --coverage -fno-inline -fno-inline-small-functions -fno-default-inline -fprofile-arcs -ftest-coverage -lpthread")
+set(CMAKE_CXX_FLAGS "-g -O0 --coverage -fno-inline -fno-inline-small-functions -fno-default-inline -fprofile-arcs -ftest-coverage -pthread")
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
