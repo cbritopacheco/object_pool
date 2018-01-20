@@ -70,6 +70,7 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 - [operator bool](#operator-bool)
 - [in_use](#in_use)
 
+
 ## object_pool
 
 ---
@@ -77,12 +78,15 @@ The object is returned to the pool using a custom deleter and the auxiliary type
 ```c++
 object_pool() : object_pool(Allocator());
 ```
-
 Constructs an empty pool with a default-constructed allocator.
+
+<details>
 
 #### Complexity
 
 Constant.
+
+</details>
 
 ---
 
@@ -93,10 +97,13 @@ object_pool(const Allocator& alloc);
 
 Constructs an empty pool with the passed allocator.
 
+<details>
+
 #### Complexity
 
 Constant.
 
+</details>
 
 ---
 
@@ -106,9 +113,13 @@ object_pool(size_type count, const T& value, const Allocator& alloc = Allocator(
 
 Constructs a pool with `count` copy-constructed objects of `value` and the passed allocator.
 
+<details>
+
 #### Complexity
 
 Linear in `count`.
+
+</details>
 
 ---
 
@@ -118,9 +129,13 @@ explicit object_pool(size_type count, const Allocator& alloc = Allocator());
 
 Constructs a pool with `count` objects that are default-constructed and the passed allocator.
 
+<details>
+
 #### Complexity
 
 Linear in `count`.
+
+</details>
 
 ---
 
@@ -130,9 +145,13 @@ object_pool(object_pool&& other) noexcept;
 
 Move-constructs a pool with the managed objects of `other`. After the call, `other` will manage no objects.
 
+<details>
+
 #### Complexity
 
 Constant.
+
+</details>
 
 ---
 
@@ -164,6 +183,8 @@ The second transfers ownership of the objects managed by `other` to `*this`. Aft
 
 All previous objects of `*this` get deallocated and destroyed until the last remaining `acquired_object` lent by `*this` goes out of scope or gets destroyed.
 
+<details>
+
 ### Parameters
 
 | parameter | type                           | default value | direction |
@@ -181,6 +202,8 @@ n/a
 ### Complexity
 Constant.
 
+</details>
+
 ## get_allocator
 
 ```c++
@@ -188,6 +211,8 @@ allocator_type get_allocator();
 ```
 
 Returns the allocator associated with the container.
+
+<details>
 
 ### Parameters
 n/a
@@ -201,12 +226,16 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+</details>
+
 ## acquire
 
 ```c++
 acquired_type acquire();
 ```
 Acquires object from the pool.
+
+<details>
 
 ### Parameters
 n/a
@@ -227,6 +256,8 @@ auto obj = pool.acquire();
 doSomething(*obj);
 ```
 
+</details>
+
 ## acquire_wait
 
 ```c++
@@ -237,6 +268,8 @@ Acquires an object from the pool.
 If no object is available, it waits until `time_limit` milliseconds have passed. If still no objects are available, it returns an empty object.
 
 If `time_limit` is equal to [`std::chrono::milliseconds::zero()`](http://en.cppreference.com/w/cpp/chrono/duration/zero) it will wait indefinitely for an object.
+
+<details>
 
 ### Parameters
 
@@ -262,6 +295,8 @@ auto obj = pool.acquire_wait(std::chrono::milliseconds(500));
 auto obj = pool.acquire_wait(500ms);
 ```
 
+</details>
+
 ## allocate
 
 ```c++
@@ -271,6 +306,8 @@ acquired_type allocate(Args&&... args);
 Acquires an object from the pool.
 
 If no object is available, it will allocate memory for a new object and construct it based on the `args` passed.
+
+<details>
 
 ### Parameters
 
@@ -307,6 +344,7 @@ Expected output:
 1
 ```
 
+</details>
 
 ## push
 
@@ -318,6 +356,8 @@ void push(rv_reference value);
 Adds a new object into the pool by either copying it or moving it.
 
 If no more space is left, it will reallocate memory for the pool.
+
+<details>
 
 ### Parameters
 
@@ -346,6 +386,8 @@ pool.push(lv); // l-value
 pool.push(std::string("Hello World!")); // r-value
 ```
 
+</details>
+
 ## emplace
 
 ```c++
@@ -354,6 +396,7 @@ void emplace(Args&&... args);
 ```
 Adds a new object into the pool by constructing it.
 
+<details>
 
 ### Parameters
 
@@ -387,6 +430,8 @@ object_pool<MyClass> pool;
 pool.emplace(5, std::string("Hello World!"));
 ```
 
+</details>
+
 ## resize
 
 ```c++
@@ -402,6 +447,8 @@ If the current size is less than count,
 
 1. additional default-inserted elements are appended
 2. additional copies of value are appended
+
+<details>
 
 ### Parameters
 
@@ -431,6 +478,7 @@ cout << pool.size() << '\n';
 pool.resize(1);
 cout << pool.size() << '\n';
 ```
+</details>
 
 ## reserve
 
@@ -445,6 +493,8 @@ Increase the capacity of the vector to a value that's greater or equal to `new_c
 If `new_cap` is greater than the current [`capacity()`](#capacity), new storage will be allocated. Otherwise the method does nothing.
 
 No acquired objects are invalidated.
+
+<details>
 
 ### Parameters
 
@@ -473,6 +523,8 @@ object_pool<int> pool; // empty pool
 pool.reserve(100); // now contains space for 100 integers
 ```
 
+</details>
+
 ## size
 
 ```c++
@@ -480,6 +532,8 @@ size_type size() const;
 ```
 
 Returns the number of **free** elements in the pool.
+
+<details>
 
 ### Parameters
 
@@ -495,6 +549,8 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+</details>
+
 ## capacity
 
 ```c++
@@ -502,6 +558,8 @@ size_type capacity() const;
 ```
 
 Returns the number of elements that can be held in currently allocated storage.
+
+<details>
 
 ### Parameters
 
@@ -517,6 +575,7 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+</details>
 
 ## empty
 
@@ -525,6 +584,8 @@ bool empty() const;
 ```
 
 Checks if the container has no **free** elements. i.e. whether `size() == 0`.
+
+<details>
 
 ### Parameters
 
@@ -539,6 +600,8 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+</details>
+
 ## operator bool
 
 ```c++
@@ -546,6 +609,8 @@ operator bool() const;
 ```
 
 Checks if there are free elements in the pool.
+
+<details>
 
 ### Parameters
 
@@ -560,6 +625,8 @@ No exceptions are thrown directly by this method.
 ### Complexity
 Constant.
 
+</details>
+
 ## in_use
 
 ```c++
@@ -567,6 +634,8 @@ bool in_use() const;
 ```
 
 Checks if elements are still being used, i.e. not all objects have returned to the pool.
+
+<details>
 
 ### Parameters
 
@@ -580,3 +649,5 @@ No exceptions are thrown directly by this method.
 
 ### Complexity
 Constant.
+
+<details>
