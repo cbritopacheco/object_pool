@@ -429,6 +429,7 @@ namespace carlosb
          * ----------
          * Constant.
          */
+        explicit
         operator bool() const
         {
             return m_pool->operator bool();
@@ -743,6 +744,7 @@ namespace carlosb
             return m_free_objects.empty();
         }
 
+        explicit
         operator bool() const
         {
             return size() > 0;
@@ -905,6 +907,7 @@ namespace carlosb
             return !(*this == none);
         }
 
+        explicit
         operator bool() const
         {
             return m_is_initialized;
