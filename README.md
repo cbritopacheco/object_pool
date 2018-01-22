@@ -10,7 +10,7 @@ The full documentation can be found [here](https://carlosb.github.io/object_pool
 [![Documentation](https://img.shields.io/badge/documentation-master-brightgreen.svg)](https://carlosb.github.io/object_pool/class/object_pool/)
 [![GitHub license](https://img.shields.io/github/license/carlosb/object_pool.svg)](https://github.com/carlosb/object_pool/blob/master/LICENSE)
 
-An `object_pool` is a container which provides shared access to a collection of instances of one object of type `T`. One only need to include the header `object_pool.hpp` to be able to use the interface. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
+An `object_pool` is a container which provides shared access to a collection of instances of one object of type `T`. One only needs to include the header `object_pool.hpp` to be able to use it. Even more, the interface is designed *á la* STL for ease of use! Take the following example for demonstration purposes:
 
 ```c++
 #include "object_pool.hpp"
