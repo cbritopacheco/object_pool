@@ -137,11 +137,14 @@ namespace carlosb
         using acquired_type     = acquired_object;          ///< Type of acquired objects.
         using stack_type        = std::stack<_Tp*>;           ///< Stack of pointers to the managed objects. Only contains unused objects.
 
+        using recycle_type     = std::function<void(value_type&)>;
+
         using size_type         = std::size_t;              ///< Size type used.
 
         using allocator_type    = _Allocator;                ///< Type of allocator.
         using mutex_type        = _Mutex;                    ///< Type of mutex.
         using scoped_lock_type  = std::lock_guard<_Mutex>;   ///< Type of lock guard.
+
         
         /**
          * @brief      Constructs an empty pool.
@@ -324,6 +327,11 @@ namespace carlosb
             m_pool->emplace(std::forward<Args>(args)...);
         }
 
+        void set_recycle(const recycle_type& recycle)
+        {
+            m_pool->set_recycle(recycle);
+        }
+
         /**
          * @brief      Resizes the pool to contain count elements.
          * 
@@ -448,7 +456,7 @@ namespace carlosb
 
         void swap(object_pool& other)
         {
-            m_pool->swap(*other.m_pool);
+            m_pool.swap(other.m_pool);
         }
     private:
         std::shared_ptr<impl>       m_pool;                ///< Pointer to implementation of pool.
@@ -700,10 +708,18 @@ namespace carlosb
             m_managed_count = count;
         }
 
+        void set_recycle(const recycle_type& recycle)
+        {
+            scoped_lock_type pool_lock(m_pool_mutex);
+            m_recycle = recycle;
+        }
+
         void return_object(_Tp* obj)
         {
             assert(obj);
             scoped_lock_type pool_lock(m_pool_mutex);
+            assert(m_recycle);
+            m_recycle(*obj);
             m_free_objects.push(obj);
             m_objects_availabe.notify_one();
         }
@@ -750,18 +766,6 @@ namespace carlosb
             return size() > 0;
         }
 
-        void swap(impl& other)
-        {
-            scoped_lock_type lock_this(m_pool_mutex);
-            scoped_lock_type lock_other(other.m_pool_mutex);
-
-            using std::swap;
-            swap(m_managed_count, other.m_managed_count);
-            swap(m_capacity, other.m_capacity);
-            swap(m_free_objects, other.m_free_objects);
-            swap(m_allocator, other.m_allocator);
-        }
-
     private:
         inline void reallocate(size_type new_cap)
         {
@@ -770,15 +774,17 @@ namespace carlosb
             m_capacity = new_cap;
         }
 
-        size_type                   m_managed_count;        ///< Number of objects currently in the pool.
-        size_type                   m_capacity;             ///< Number of objects the pool can hold.
-        allocator_type              m_allocator;            ///< Allocates space for the pool.
+        recycle_type                m_recycle = [](value_type&){};  ///< Recycling function
 
-        stack_type                  m_allocated_space;      ///< Pointer to first object in the pool.
-        stack_type                  m_free_objects;         ///< Stack of free objects.
+        size_type                   m_managed_count;                ///< Number of objects currently in the pool.
+        size_type                   m_capacity;                     ///< Number of objects the pool can hold.
+        allocator_type              m_allocator;                    ///< Allocates space for the pool.
 
-        mutable mutex_type          m_pool_mutex;           ///< Controls access to the pool.
-        std::condition_variable     m_objects_availabe;     ///< Indicates presence of free objects.
+        stack_type                  m_allocated_space;              ///< Pointer to first object in the pool.
+        stack_type                  m_free_objects;                 ///< Stack of free objects.
+
+        mutable mutex_type          m_pool_mutex;                   ///< Controls access to the pool.
+        std::condition_variable     m_objects_availabe;             ///< Indicates presence of free objects.
     };
 
     // --- deleter IMPLEMENTATION -----------------------------------
@@ -844,8 +850,8 @@ namespace carlosb
             other.m_is_initialized = false;
         }
 
-        acquired_object(const acquired_object&) = delete;
-        acquired_object& operator=(const acquired_object&) = delete;
+        acquired_object(const acquired_object&)             = delete;
+        acquired_object& operator=(const acquired_object&)  = delete;
 
         acquired_object& operator=(acquired_object&& other)
         {
