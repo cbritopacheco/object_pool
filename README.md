@@ -36,6 +36,8 @@ int main()
 	
 	return 0;
 }
+// when the object goes out of scope, it will get returned to the pool
+// when the pool goes out of scope, it will delete all objects
 ```
 
 # Basic Example
